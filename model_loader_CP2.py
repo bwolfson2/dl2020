@@ -95,20 +95,20 @@ class ModelLoader():
 
         #print("F shape {}".format(F1.shape))
 
-        T1 = torch.cat([A1, B1, C1], 0)
-        T2 = torch.cat([A2, B2, C2], 0)
-        T3 = torch.cat([A3, B3, C3], 0)
+        T1 = torch.cat([A1, B1, C1], 1)
+        T2 = torch.cat([A2, B2, C2], 1)
+        T3 = torch.cat([A3, B3, C3], 1)
 
-        B1 = torch.cat([D1, E1, F1], 0)
-        B2 = torch.cat([D2, E2, F2], 0)
-        B3 = torch.cat([D3, E3, F3], 0)
-        #print("T1 shape {}".format(T1.shape))
+        B1 = torch.cat([D1, E1, F1], 1)
+        B2 = torch.cat([D2, E2, F2], 1)
+        B3 = torch.cat([D3, E3, F3], 1)
+        print("T1 shape {}".format(T1.shape))
 
-        comb1 = torch.cat([T1,B1], 1)
-        comb2 = torch.cat([T2,B2], 1)
-        comb3 = torch.cat([T3,B3], 1)
+        comb1 = torch.cat([T1,B1], 0)
+        comb2 = torch.cat([T2,B2], 0)
+        comb3 = torch.cat([T3,B3], 0)
 
-        #print("comb1 shape {}".format(comb1.shape)) #should be 768, 612
+        print("comb1 shape {}".format(comb1.shape)) #should be 768, 612
         comb = torch.stack([comb1, comb2, comb3])
         toImg = transforms.ToPILImage()
         result = toImg(comb)

@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 apt install unzip #install unzip
 apt install wget #install wget
 
@@ -25,8 +25,18 @@ python -m ipykernel install --user --name=gpu
 git clone https://github.com/bwolfson2/dl2020.git
 cd dl2020
 
+#download gcloud sdk
+wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-290.0.0-linux-x86_64.tar.gz
+tar -xvf google-cloud-sdk-290.0.0-linux-x86_64.tar.gz
+./google-cloud-sdk/install.sh --path-update true -q
+
+#Open new terminal 
+mv client.zip2 client.zip
+unzip client.zip
+
 
 #download student data
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash" -O student_data.zip && rm -rf /tmp/cookies.txt
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash' -O- | sed -En 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash" -O student_data.zip && rm -rf /tmp/cookies.txt
 unzip student_data.zip
 rm student_data.zip
+

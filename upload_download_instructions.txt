@@ -1,0 +1,11 @@
+1. Install 
+conda install google-cloud-storage
+
+Authenticate using:
+gcloud auth activate-service-account  --key-file=sinuous-client-274919-bb1d7df46d87.json
+
+
+Upload/download instructions are here: 
+https://cloud.google.com/storage/docs/quickstart-gsutil
+
+Basically authenticate and then use the bucket gs://dl2020

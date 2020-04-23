@@ -1,0 +1,45 @@
+CV2 contours
+
+contours is a Python list of all the contours in the image. Each individual contour is a Numpy array of (x,y) coordinates of boundary points of the object.
+
+image, contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+
+
+
+Implement YoLo in python
+https://www.analyticsvidhya.com/blog/2018/12/practical-guide-object-detection-yolo-framewor-python/
+
+https://blog.paperspace.com/how-to-implement-a-yolo-object-detector-in-pytorch/
+
+https://github.com/ayooshkathuria/YOLO_v3_tutorial_from_scratch/blob/master/darknet.py
+
+Coursera class
+https://www.coursera.org/learn/convolutional-neural-networks/lecture/fF3O0/yolo-algorithm
+https://www.youtube.com/watch?v=ZILIbUvp5lk&list=PLkDaE6sCZn6Gl29AoE31iwdVwSG-KnDzF&index=14
+
+Unet
+https://towardsdatascience.com/u-net-b229b32b4a71
+https://github.com/Hsankesara/DeepResearch/tree/master/UNet
+https://www.kaggle.com/hsankesara/unet-image-segmentation/data
+
+
+Detectron
+https://github.com/facebookresearch/Detectron
+https://github.com/facebookresearch/detectron2
+
+
+Lyft experiment
+https://towardsdatascience.com/3d-object-detection-for-autonomous-vehicles-b5f480e40856
+
+RNN
+https://towardsdatascience.com/r-cnn-fast-r-cnn-faster-r-cnn-yolo-object-detection-algorithms-36d53571365e
+
+https://bitbucket.org/deeplab/deeplab-public/src/master/
+
+
+CP scratch notes
+Scratch stuff
+
+/scratch/cp2530/myjupyter/DLProject/DLSP20Dataset/data/scene_106/sample_0
+/Users/mintielaptop/Dropbox/NYU_Data_Science/Deep\ Learning/project

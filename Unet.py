@@ -82,8 +82,21 @@ class UNet(nn.Module):
         This layer crop the layer from contraction block and concat it with expansive block vector
         """
         if crop:
-            c = (bypass.size()[2] - upsampled.size()[2]) // 2
-            bypass = F.pad(bypass, (-c, -c, -c, -c))
+            #print("upsampled size {}, bypass size {}".format(upsampled.size(), bypass.size()))
+            diff = bypass.size()[2] - upsampled.size()[2]
+            if (diff % 2) == 0: #if even
+                c = diff // 2
+                bypass = F.pad(bypass, (-c, -c, -c, -c))
+            else: #iff odd
+                c1 = diff//2
+                c2 = c1+1
+                m = nn.ConstantPad2d((-c1, -c2, -c1, -c2), 0)
+                bypass = m(bypass)
+            #print("c {}".format(c))
+            #print("upsampled size {}, bypass size {}".format(upsampled.size(), bypass.size()))
+            
+             
+            
         return torch.cat((upsampled, bypass), 1)
 
     def forward(self, x):
@@ -102,5 +115,8 @@ class UNet(nn.Module):
         decode_block2 = self.crop_and_concat(cat_layer2, encode_block2, crop=True)
         cat_layer1 = self.conv_decode2(decode_block2)
         decode_block1 = self.crop_and_concat(cat_layer1, encode_block1, crop=True)
+        
+        print("pre final shape {}".format(decode_block1.shape))
+        
         final_layer = self.final_layer(decode_block1)
         return  final_layer

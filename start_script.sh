@@ -34,6 +34,14 @@ tar -xvf google-cloud-sdk-290.0.0-linux-x86_64.tar.gz
 mv client.zip2 client.zip
 unzip client.zip
 
+#to upload files into the google cloud account
+./bucket_upload.sh <file name>
+
+#to download files from the google account
+gsutil cp gs://dl2020/<file name> <file name>
+
+#to look at the google account contents : https://console.cloud.google.com/storage/browser/dl2020
+
 
 #download student data
 wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash' -O- | sed -En 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1fCYFNpLopbUDOc5Pv3Gv1VD6GCVb5ash" -O student_data.zip && rm -rf /tmp/cookies.txt

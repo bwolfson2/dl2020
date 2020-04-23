@@ -22,7 +22,7 @@ conda install pillow=6.2.1 -y
 
 #set to jupyter environment
 python -m ipykernel install --user --name=gpu 
-git clone https://github.com/bwolfson2/dl2020.git
+git clone https://github.com/bwolfson2/dl2020.git #if there is no git, do "apt install git" first
 cd dl2020
 
 #download gcloud sdk
@@ -30,7 +30,8 @@ wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk
 tar -xvf google-cloud-sdk-290.0.0-linux-x86_64.tar.gz
 ./google-cloud-sdk/install.sh --path-update true -q
 
-#Open new terminal 
+#Open new terminal
+cd dl2020 #or make sure you are in directory /workspace/dl2020
 mv client.zip2 client.zip
 unzip client.zip
 

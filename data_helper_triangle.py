@@ -76,6 +76,7 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
         road_image = convert_map_to_road_map(ego_image)
         ##Preprocess road image
         road_image = torch.Tensor(road_image.numpy()*self.mask)
+        road_image_mod = road_image[self.mask]
         
         target = {}
         target['bounding_box'] = torch.as_tensor(corners).view(-1, 2, 4)
@@ -91,10 +92,10 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
             extra['ego_image'] = ego_image
             extra['lane_image'] = lane_image
 
-            return image, target, road_image, extra
+            return image, target, road_image, extra, road_image_mod
         
         else:
-            return image, target, road_image
+            return image, target, road_image, road_image_mod
         
 
 def test_loader(camera='CAM_BACK.jpeg'):

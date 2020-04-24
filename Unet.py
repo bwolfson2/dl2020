@@ -143,7 +143,7 @@ class UNet(nn.Module):
         decode_block1 = self.crop_and_concat(cat_layer1, encode_block1, crop=True)
         
         ### EDIT ###
-        print("pre final shape {}".format(decode_block1.shape))
+        #print("pre final shape {}".format(decode_block1.shape))
         
         final_layer = self.final_layer(decode_block1)
         refit_layer = self.refit_layer(final_layer)    

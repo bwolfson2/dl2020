@@ -8,6 +8,8 @@ from shapely import ops
 from shapely.geometry import *
 from shapely import affinity
 from shapely.ops import linemerge, unary_union, polygonize
+import matplotlib.pyplot as plt
+
 
 
 def get_image_polygon(im):
@@ -39,7 +41,7 @@ def split_polygon(ml,poly,select_line):
     return polygons
 
 def get_cut(im_rect,start_angle=-30,split_angle=70):
-    splitting_lines,middle_line = generate_splitting_lines(im_rect.centroid,im.size[0]+im.size[1],start_angle,split_angle)
+    splitting_lines,middle_line = generate_splitting_lines(im_rect.centroid,sum(im_rect.boundary.coords[2]),start_angle,split_angle)
     return split_polygon(splitting_lines,im_rect,middle_line)
 
 
@@ -81,6 +83,9 @@ def pathify(polygon):
     return Path(vertices, codes)
 
 def get_polygon_contain_indices(w,h,polygons):
+    '''
+    returns list of (w,h) indices
+    '''
     points = list(make_point_grid(w,h))
     paths = [pathify(poly) for poly in polygons]
     return [path.contains_points(points) for path in paths]
@@ -91,8 +96,8 @@ def split_image_by_angle(image_filename,start_angle,split_angle,num_rotations,re
     
     '''
     im = Image.open(image_filename)
-    h = im.size[0]
-    w = im.size[1]
+    w = im.size[0]
+    h = im.size[1]
     im_polygon = get_image_polygon(im)
     polygons=split_shape(im_polygon,start_angle=start_angle,split_angle=split_angle,num_rotations=num_rotations)
     poly_masks = get_polygon_contain_indices(w,h,polygons)
@@ -101,10 +106,28 @@ def split_image_by_angle(image_filename,start_angle,split_angle,num_rotations,re
     else:
         return poly_masks
     
+def plot_mask(mask):
+    fig, ax = plt.subplots()
+    ax.imshow(mask, cmap='binary');
+
     
-if __name__ == "__main__":
-    split_image_by_angle("download.jpeg",)
-#     im = Image.open("download.jpeg")
-#     imp = get_image_polygon(im)
-#     polygons=split_shape(imp,start_angle=-30,split_angle=60,num_rotations=3)
-#     get_polygon_contain_indices(w,h,polygons)
+# def get_camera_mask(camera_name):
+#     camera_centroid = camera_to_centroid[camera]
+#     return 
+    
+
+def get_split_info(image_filename,start_angle=-30,split_angle=60,num_rotations=1):
+    im = Image.open(image_filename)
+    w = im.size[0]
+    h = im.size[1]
+    im_polygon = get_image_polygon(im)
+    im_polygon
+    polygons=split_shape(im_polygon,start_angle=start_angle,split_angle=split_angle,num_rotations=num_rotations)
+    poly_masks = get_polygon_contain_indices(w,h,polygons)
+    for i in range(len(polygons)):
+        plot_mask(poly_masks[i].reshape(w,h).transpose())
+        plt.plot(*polygons[i].exterior.xy)
+        plt.plot(polygons[i].centroid.coords[0][0],polygons[i].centroid.coords[0][1], 'x', color="red")
+    return polygons,poly_masks, [polygon.centroid.coords[0] for polygon in polygons]
+
+

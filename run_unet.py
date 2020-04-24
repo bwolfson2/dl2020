@@ -124,9 +124,10 @@ def train(train_val_loader, **train_kwargs):
                            e+1, i+1, loss,  val_acc, elapsed_time))
                 unet.train() #go back to training
                 t = time.process_time()
-
-
-
+    #save model
+    torch.save(unet.state_dict(), "./models/unet_1.pt")
+    
+    
 
 if __name__ == "__main__":
     print("this is a new test")

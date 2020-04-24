@@ -15,18 +15,18 @@ from helper import convert_map_to_lane_map, convert_map_to_road_map
 NUM_SAMPLE_PER_SCENE = 126
 NUM_IMAGE_PER_SAMPLE = 6
 image_names = [
-    'CAM_FRONT_LEFT.jpeg',
     'CAM_FRONT.jpeg',
-    'CAM_FRONT_RIGHT.jpeg',
+    'CAM_FRONT_LEFT.jpeg',
     'CAM_BACK_LEFT.jpeg',
     'CAM_BACK.jpeg',
     'CAM_BACK_RIGHT.jpeg',
+    'CAM_FRONT_RIGHT.jpeg'
     ]
 
 #BASICALLY YOU JUST HAVE TO SPECIFY THE IMAGE TO LPAD IN THE __GET_ITEM__ on init
 # The dataset class for labeled data.
 class TriangleLabeledDataset(torch.utils.data.Dataset):    
-    def __init__(self, image_folder, annotation_file, scene_index, transform,extra_info=True):
+    def __init__(self, image_folder, annotation_file, scene_index, transform,extra_info=True,camera='CAM_FRONT.jpeg'):
         """
         Args:
             image_folder (string): the location of the image folder
@@ -35,7 +35,7 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
             transform (Transform): The function to process the image
             extra_info (Boolean): whether you want the extra information
         """
-        assert(camera in image_names)
+        self.camera = camera
         self.image_folder = image_folder
         self.annotation_dataframe = pd.read_csv(annotation_file)
         self.scene_index = scene_index
@@ -46,16 +46,12 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
         return self.scene_index.size * NUM_SAMPLE_PER_SCENE
 
     def __getitem__(self, index):
-        if isinstance(index,tuple):
-            index,camera = index
-            assert(camera in image_names)
-            camera_index = True
         scene_id = self.scene_index[index // NUM_SAMPLE_PER_SCENE]
         sample_id = index % NUM_SAMPLE_PER_SCENE
         sample_path = os.path.join(self.image_folder, f'scene_{scene_id}', f'sample_{sample_id}') 
         
         #get camera and only get that image
-        image_path = os.path.join(sample_path, camera)
+        image_path = os.path.join(sample_path, self.camera)
         image = Image.open(image_path)
         image = self.transform(image)
 

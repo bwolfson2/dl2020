@@ -85,7 +85,7 @@ def get_polygon_contain_indices(w,h,polygons):
     paths = [pathify(poly) for poly in polygons]
     return [path.contains_points(points) for path in paths]
 
-def split_image_by_angle(image_filename,start_angle,split_angle,return_polygons=True):
+def split_image_by_angle(image_filename,start_angle,split_angle,num_rotations,return_polygons=True):
     '''
     Takes as input an image and the start angle and split angle, and splits it returning 
     
@@ -94,7 +94,7 @@ def split_image_by_angle(image_filename,start_angle,split_angle,return_polygons=
     h = im.size[0]
     w = im.size[1]
     im_polygon = get_image_polygon(im)
-    polygons=split_shape(im_polygon,start_angle=-30,split_angle=60,num_rotations=3)
+    polygons=split_shape(im_polygon,start_angle=start_angle,split_angle=split_angle,num_rotations=num_rotations)
     poly_masks = get_polygon_contain_indices(w,h,polygons)
     if return_polygons:
         return poly_masks,polygons
@@ -103,7 +103,7 @@ def split_image_by_angle(image_filename,start_angle,split_angle,return_polygons=
     
     
 if __name__ == "__main__":
-    split_image_by_angle("download.jpeg",-30,60)
+    split_image_by_angle("download.jpeg",)
 #     im = Image.open("download.jpeg")
 #     imp = get_image_polygon(im)
 #     polygons=split_shape(imp,start_angle=-30,split_angle=60,num_rotations=3)

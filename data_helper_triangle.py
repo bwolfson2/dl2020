@@ -35,6 +35,8 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
             transform (Transform): The function to process the image
             extra_info (Boolean): whether you want the extra information
         """
+        
+        assert(camera in image_names)
         self.camera = camera
         self.image_folder = image_folder
         self.annotation_dataframe = pd.read_csv(annotation_file)

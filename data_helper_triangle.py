@@ -1,4 +1,3 @@
-# %load data_helper.py
 import os
 from PIL import Image
 
@@ -23,6 +22,15 @@ image_names = [
     'CAM_FRONT_RIGHT.jpeg'
     ]
 
+
+
+def load_mask(camera):
+    mask = np.load(camera.replace(".jpeg",".npy"))
+    mask = mask.reshape(800,800).transpose()
+    return mask
+    
+    
+    
 #BASICALLY YOU JUST HAVE TO SPECIFY THE IMAGE TO LPAD IN THE __GET_ITEM__ on init
 # The dataset class for labeled data.
 class TriangleLabeledDataset(torch.utils.data.Dataset):    
@@ -38,6 +46,7 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
         
         assert(camera in image_names)
         self.camera = camera
+        self.mask = load_mask(camera)
         self.image_folder = image_folder
         self.annotation_dataframe = pd.read_csv(annotation_file)
         self.scene_index = scene_index
@@ -65,6 +74,8 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
         ego_image = Image.open(ego_path)
         ego_image = torchvision.transforms.functional.to_tensor(ego_image)
         road_image = convert_map_to_road_map(ego_image)
+        ##Preprocess road image
+        road_image = torch.Tensor(road_image.numpy()*self.mask)
         
         target = {}
         target['bounding_box'] = torch.as_tensor(corners).view(-1, 2, 4)
@@ -84,5 +95,31 @@ class TriangleLabeledDataset(torch.utils.data.Dataset):
         
         else:
             return image, target, road_image
+        
 
+def test_loader(camera='CAM_BACK.jpeg'):
+    transform = torchvision.transforms.ToTensor()
+    # The labeled dataset can only be retrieved by sample.
+    # And all the returned data are tuple of tensors, since bounding boxes may have different size
+    # You can choose whether the loader returns the extra_info. It is optional. You don't have to use it.
+    labeled_trainset = TriangleLabeledDataset(image_folder=image_folder,
+                                      annotation_file=annotation_csv,
+                                      scene_index=labeled_scene_index,
+                                      transform=transform,
+                                      extra_info=True,
+                                    camera = camera
+                                     )
+    trainloader = torch.utils.data.DataLoader(labeled_trainset , batch_size=2, \
+                                              shuffle=False, num_workers=2, collate_fn=collate_fn)
+
+    sample, target, road_image, extra = iter(trainloader).next()
+    plt.imshow(sample[0].numpy().transpose(1, 2, 0))
+    plt.axis('off');
+    fig, ax = plt.subplots()
+
+    ax.imshow(road_image[0], cmap='binary');
+    plot_mask(labeled_trainset.mask)
+    return road_image[0],labeled_trainset.mask
     
+if __name__ == "__main__":   
+    ri,m=test_loader()

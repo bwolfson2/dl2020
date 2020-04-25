@@ -17,7 +17,7 @@ import time
 from model_loader_CP2 import *
 #from CP_helper import *
 from Unet import *
-
+from Unet_noConcat import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -91,14 +91,15 @@ def train(train_val_loader, **train_kwargs):
     train_loader = train_val_loader["train"]
     val_loader = train_val_loader["val"]
     
-    unet = UNet(in_channel=1,out_channel=1).cuda()
-    criterion = torch.nn.BCELoss()
-    param_list = [p for p in unet.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(param_list, lr = train_kwargs["lr"], momentum=train_kwargs["momentum"])
+    #model = UNet(in_channel=1,out_channel=1).cuda()
+    model = UNet_NoCat(in_channel=1,out_channel=1).cuda()
+    criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
+    param_list = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
     train_losses = []
     val_accs = []
     
-    unet.train()
+    model.train()
     for e in range(train_kwargs["epochs"]):
         t = time.process_time()
 
@@ -107,7 +108,7 @@ def train(train_val_loader, **train_kwargs):
             labels = torch.stack(road_image, 0).cuda() #should be [batch size, 800, 800]
             
             optimizer.zero_grad()
-            outputs = unet(sample_.unsqueeze(1)) #unet needs the channels dimension
+            outputs = model(sample_.unsqueeze(1)) #unet needs the channels dimension
             outputs = outputs.squeeze(1)
             loss = criterion(outputs, labels.float())
             loss.backward()
@@ -116,17 +117,23 @@ def train(train_val_loader, **train_kwargs):
             
             # validate every 200 iterations
             if i > 0 and i % 100== 0:
-                val_acc = test_model(val_loader, unet) #calls model.eval()
+                val_acc = test_model(val_loader, model) #calls model.eval()
                 val_accs.append(val_acc)
                 #do some stuff
                 elapsed_time = time.process_time() - t
                 print('Epoch: [{}], Step: [{}], Train Loss {:.4f}, Validation Acc: {:.4f}, time {:.4f}'.format( 
                            e+1, i+1, loss,  val_acc, elapsed_time))
-                unet.train() #go back to training
+                model.train() #go back to training
                 t = time.process_time()
     #save model
-    torch.save(unet.state_dict(), "./models/unet_2.pt")
-    
+    #torch.save(unet.state_dict(), "./models/unet_2.pt")
+    torch.save({
+             
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_losses': train_losses,
+            'val_accs': val_accs
+            }, "./models/unet_nocat_1.pt")
     
 
 if __name__ == "__main__":
@@ -159,8 +166,9 @@ if __name__ == "__main__":
     
     train_kwargs={
     'epochs':1,
-    "lr": 0.01,
-    'momentum': 0.99
+    'lr': 2e-05,
+    'momentum': 0.99,
+    'eps':1e-08
     }
     
     

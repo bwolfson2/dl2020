@@ -8,7 +8,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-class UNet(nn.Module):
+class UNet_NoCat(nn.Module):
     def contracting_block(self, in_channels, out_channels, kernel_size=3):
         """
         This function creates one contracting block
@@ -63,7 +63,7 @@ class UNet(nn.Module):
         block = torch.nn.Sequential(
             *([torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size),#stride default = 
             torch.nn.ReLU(),
-            torch.nn.BatchNorm2d(out_channels)]*23)
+            torch.nn.BatchNorm2d(out_channels)]*23))
         '''
             torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size),
             torch.nn.ReLU(),
@@ -77,7 +77,7 @@ class UNet(nn.Module):
     ## EDIT END ###
     
     def __init__(self, in_channel, out_channel):
-        super(UNet, self).__init__()
+        super(UNet_NoCat, self).__init__()
         #Encode
         self.conv_encode1 = self.contracting_block(in_channels=in_channel, out_channels=64)
         self.conv_maxpool1 = torch.nn.MaxPool2d(kernel_size=2)
@@ -141,23 +141,23 @@ class UNet(nn.Module):
         #print("bottleneck1 {},  encode_block3{}".format(bottleneck1.shape, encode_block3.shape))
         #decode_block3 = self.crop_and_concat(bottleneck1, encode_block3, crop=True)
         
-        print("bottleneck1 {}".format(bottleneck1.shape))
+        #print("bottleneck1 {}".format(bottleneck1.shape))
         decode_block2 = self.conv_decode3(bottleneck1)
         
         #print("cat_layer2 {},  decode_block2{}".format(cat_layer2.shape, encode_block2.shape))
         #decode_block2 = self.crop_and_concat(cat_layer2, encode_block2, crop=True)
         
-        print("decode_block2{}".format(decode_block2.shape))
+        #print("decode_block2{}".format(decode_block2.shape))
         decode_block1 = self.conv_decode2(decode_block2)
         
         #print("cat_layer1 shape {}, encode_bl1 shape{}".format(cat_layer1.shape, encode_block1.shape))
         #decode_block1 = self.crop_and_concat(cat_layer1, encode_block1, crop=True)
         
         ### EDIT ###
-        print("pre final shape {}".format(decode_block1.shape))
+        #print("pre final shape {}".format(decode_block1.shape))
         
         final_layer = self.final_layer(decode_block1)
-        print("pre refit layer shape {}".format(final_layer.shape))
+        #print("pre refit layer shape {}".format(final_layer.shape))
         refit_layer = self.refit_layer(final_layer)    
         output = self.sigmoid(refit_layer)     
         return  output

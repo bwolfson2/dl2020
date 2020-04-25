@@ -1,0 +1,16 @@
+this is a new test
+18 10
+109 115
+2268
+1260
+Epoch: [1], Step: [101], Train Loss 11971388.0000, Validation Acc: 55.8356, time 549.1246
+Epoch: [1], Step: [201], Train Loss 11989486.0000, Validation Acc: 55.8356, time 543.7161
+Epoch: [1], Step: [301], Train Loss 14882314.0000, Validation Acc: 55.8356, time 550.9061
+Epoch: [1], Step: [401], Train Loss 15335355.0000, Validation Acc: 55.8356, time 550.4075
+Epoch: [1], Step: [501], Train Loss 12221034.0000, Validation Acc: 55.8356, time 547.0013
+Epoch: [1], Step: [601], Train Loss 11694884.0000, Validation Acc: 55.8356, time 552.8546
+Epoch: [1], Step: [701], Train Loss 18175464.0000, Validation Acc: 55.8356, time 551.0444
+Epoch: [1], Step: [801], Train Loss 15343478.0000, Validation Acc: 55.8356, time 551.2008
+Epoch: [1], Step: [901], Train Loss 11179979.0000, Validation Acc: 55.8356, time 552.5521
+Epoch: [1], Step: [1001], Train Loss 13835210.0000, Validation Acc: 55.8356, time 551.6448
+Epoch: [1], Step: [1101], Train Loss 16719806.0000, Validation Acc: 55.8356, time 545.2077

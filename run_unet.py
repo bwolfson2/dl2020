@@ -95,7 +95,7 @@ def train(train_val_loader, **train_kwargs):
     model = UNet_NoCat(in_channel=1,out_channel=1).cuda()
     criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
     param_list = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(param_list, lr = train_kwargs["lr"], momentum=train_kwargs["momentum"])
+    optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
     train_losses = []
     val_accs = []
     
@@ -131,7 +131,7 @@ def train(train_val_loader, **train_kwargs):
              
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
-            'train_losses': train_loss,
+            'train_losses': train_losses,
             'val_accs': val_accs
             }, "./models/unet_nocat_1.pt")
     
@@ -166,8 +166,9 @@ if __name__ == "__main__":
     
     train_kwargs={
     'epochs':1,
-    "lr": 0.01,
-    'momentum': 0.99
+    'lr': 2e-05,
+    'momentum': 0.99,
+    'eps':1e-08
     }
     
     

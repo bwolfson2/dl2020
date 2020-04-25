@@ -122,7 +122,7 @@ class ModelLoader():
         
         #sew together the 6 images (across 3 channels) to size (768, 612) then resize to (880, 880) 
         
-        transTot = transforms.Compose([transforms.Resize((880,880)), transforms.ToTensor()])        
+        transTot = transforms.Compose([transforms.Resize((800,800)), transforms.ToTensor()])        
         bstack_list = []
 
         for i in range(len(samples)): #for each of the 2 in the batch

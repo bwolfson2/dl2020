@@ -125,7 +125,7 @@ def train(train_val_loader, **train_kwargs):
                 unet.train() #go back to training
                 t = time.process_time()
     #save model
-    torch.save(unet.state_dict(), "./models/unet_1.pt")
+    torch.save(unet.state_dict(), "./models/unet_2.pt")
     
     
 
@@ -165,3 +165,4 @@ if __name__ == "__main__":
     
     
     train(train_val_loader, **train_kwargs)
+    print('finished')

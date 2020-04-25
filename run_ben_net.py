@@ -71,8 +71,8 @@ def test_model(loader, model):
 
 
 def train(feat_extractor, **train_kwargs):
-    for cam in image_names[:1]: #let's try just front camera
-
+    for cam in image_names: #let's try just front camera
+        print("training {}".format(cam))
         #make camera specific train loader
         labeled_trainset = training_tools[cam][1]
         train_loader = torch.utils.data.DataLoader(labeled_trainset , batch_size=2, 
@@ -122,7 +122,7 @@ def train(feat_extractor, **train_kwargs):
                     model.train() #go back to training
                     t = time.process_time()
         #save model
-         
+        print("save camera model") 
         torch.save({
 
                 'model_state_dict': model.state_dict(),
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     feat_extractor.fc = Identity() #change it to identity
 
     train_kwargs={
-        'epochs':1,
+        'epochs':5,
         'lr': 2e-05,
         'momentum': 0.99,
         'eps':1e-08

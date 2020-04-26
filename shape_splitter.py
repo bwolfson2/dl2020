@@ -120,7 +120,7 @@ def plot_mask(mask):
 #     return 
 
 def get_mask_name(camera,shape):
-    return camera.replace(".jpeg","_{downsample_shape[0]}.npy")
+    return camera.replace(".jpeg",f"_{shape[0]}.npy")
     
 
 def get_split_info(image_filename_or_w_h_tuple,start_angle=-30,split_angle=60,num_rotations=1):
@@ -156,5 +156,5 @@ def save_masks(downsample_shape,start_angle=-35,split_angle=70,num_rotations=3):
     }
 
     for k,v in camera_centroid.items():
-        with open(get_mask_name(camera,downsample_shape),"wb") as f:
+        with open(get_mask_name(k,downsample_shape),"wb") as f:
             np.save(f,v)

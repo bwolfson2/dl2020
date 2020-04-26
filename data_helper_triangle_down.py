@@ -1,3 +1,6 @@
+# %load data_helper_triangle.py
+# %load data_helper.py
+#%%writefile data_helper_triangle_down.py
 import os
 from PIL import Image
 
@@ -158,3 +161,4 @@ if __name__ == "__main__":
     annotation_csv = 'data/annotation.csv'
     labeled_scene_index = np.arange(106, 134)
     sample, target, road_image_rebinned, extra, road_image_rebinned_mod=test_loader()
+    print(len(road_image_rebinned_mod[0]))

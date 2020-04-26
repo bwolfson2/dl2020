@@ -24,8 +24,15 @@ import torchvision
 import torchvision.transforms as transforms
 
 from data_helper import UnlabeledDataset, LabeledDataset
-from data_helper_triangle import TriangleLabeledDataset,image_names
+from data_helper_triangle_down import TriangleLabeledDataset,image_names, get_mask_name, load_mask
 from helper import collate_fn, draw_box
+import argparse
+
+
+
+
+
+
 
 class Identity(torch.nn.Module):
     def __init__(self):
@@ -139,7 +146,13 @@ def train(feat_extractor, **train_kwargs):
 
 
 if __name__ == "__main__":
-    print("running ben test")
+    
+    parser = argparse.ArgumentParser(description='Run neural net, first argument is downsampling rate')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--downsample", help="The downsample size for the image (1 dimension)",
+                        type=int)
+    args = parser.parse_args()
+    downsample_shape = (args.downsample,args.downsample)
     
     random.seed(0)
     np.random.seed(0)
@@ -162,7 +175,8 @@ if __name__ == "__main__":
                                                ])
 
     train_labeled_scene_index, val_labeled_scene_index = gen_train_val_index(labeled_scene_index)
-    crop_size = {cam:np.load(cam.replace(".jpeg",".npy")).sum() for cam in image_names}
+    crop_size = {cam:load_mask(get_mask_name(cam,downsample_shape),downsample_shape).sum() for cam in image_names}
+    print(crop_size)
     training_tools = {cam: (nn.Linear(512, crop_size[cam]), 
                            #training set
                            TriangleLabeledDataset(image_folder=image_folder,
@@ -181,7 +195,6 @@ if __name__ == "__main__":
                        
                        
                        ) for cam in image_names}
-    
     
     feat_extractor = torchvision.models.resnet18()
     feat_extractor.fc = Identity() #change it to identity

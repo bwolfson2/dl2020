@@ -77,6 +77,8 @@ def test_model(loader, model):
     return (100 * correct / total)
 
 
+
+
 def train(feat_extractor, **train_kwargs):
     for cam in image_names: #let's try just front camera
         print("training {}".format(cam))

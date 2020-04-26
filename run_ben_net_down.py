@@ -151,7 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--downsample", help="The downsample size for the image (1 dimension)",
                         type=int)
-    parser.add_argument("--batch-size", help="batch-size",
+    parser.add_argument("--batch", help="batch-size",
                         type=int)
     args = parser.parse_args()
     downsample_shape = (args.downsample,args.downsample)
@@ -186,14 +186,14 @@ if __name__ == "__main__":
                                   scene_index=train_labeled_scene_index,
                                   transform=transform,
                                   extra_info=True,
-                                camera = cam),
+                                camera = cam,downsample_shape=downsample_shape),
                            #validation set
                             TriangleLabeledDataset(image_folder=image_folder,
                                   annotation_file=annotation_csv,
                                   scene_index=val_labeled_scene_index,
                                   transform=transform,
                                   extra_info=True,
-                                camera = cam),
+                                camera = cam,downsample_shape=downsample_shape),
                        
                        
                        ) for cam in image_names}
@@ -205,7 +205,8 @@ if __name__ == "__main__":
         'epochs':20,
         'lr': 2e-05,
         'momentum': 0.99,
-        'eps':1e-08
+        'eps':1e-08,
+        'batch':args.batch
         }
     
     train(feat_extractor, **train_kwargs)

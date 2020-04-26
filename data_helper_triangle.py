@@ -1,126 +1,158 @@
-import os
+#%%writefile shape_splitter.py
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
+from shapely.geometry import Polygon
 from PIL import Image
-
+from itertools import product
 import numpy as np
-import pandas as pd
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-
-from helper import convert_map_to_lane_map, convert_map_to_road_map
-
-NUM_SAMPLE_PER_SCENE = 126
-NUM_IMAGE_PER_SAMPLE = 6
-image_names = [
-    'CAM_FRONT.jpeg',
-    'CAM_FRONT_LEFT.jpeg',
-    'CAM_BACK_LEFT.jpeg',
-    'CAM_BACK.jpeg',
-    'CAM_BACK_RIGHT.jpeg',
-    'CAM_FRONT_RIGHT.jpeg'
-    ]
+from shapely import ops
+from shapely.geometry import *
+from shapely import affinity
+from shapely.ops import linemerge, unary_union, polygonize
+import matplotlib.pyplot as plt
 
 
+def get_w_h_polygon(w,h):
+    imp = Polygon([(0,0),(h,0),(h,w),(0,w)])
+    return imp
 
-def load_mask(camera):
-    mask = np.load(camera.replace(".jpeg",".npy"))
-    mask = mask.reshape(800,800).transpose()
-    return mask
+
+def get_image_polygon(im):
+    h = im.size[0]
+    w = im.size[1]
+    imp = Polygon([(0,0),(h,0),(h,w),(0,w)])
+    return imp
+
+
+def generate_splitting_lines(center,half_length,start_angle,split_angle):
+    cx = center.coords[0][0]
+    cy = center.coords[0][1]
+    l = LineString([(cx-half_length,cy),(cx+half_length,cy)])
+    l = affinity.rotate(l,start_angle)
+    ml = MultiLineString([l,affinity.rotate(l,split_angle)])
+    middle_line = affinity.rotate(l,split_angle/2)
+    return ml,middle_line
+
+def split_polygon(ml,poly,select_line):
+    merged = linemerge([poly.boundary, *ml])
+    borders = unary_union(merged)
+    polygons = list(polygonize(borders))
+    mline_scaled_bounds = affinity.scale(select_line,.01,.01).boundary
+    for i,j in product(polygons,polygons):
+        if i == j:
+            continue
+        elif ops.unary_union([i,j]).contains(mline_scaled_bounds):
+            return [i,j]
+    return polygons
+
+def get_cut(im_rect,start_angle=-30,split_angle=70):
+    splitting_lines,middle_line = generate_splitting_lines(im_rect.centroid,sum(im_rect.boundary.coords[2]),start_angle,split_angle)
+    return split_polygon(splitting_lines,im_rect,middle_line)
+
+
+def split_shape(shape,start_angle=-30,split_angle=70,num_rotations=1):
+    polys=[]
+    for r in range(1,num_rotations+1):
+        polys.extend(get_cut(shape,start_angle=start_angle,split_angle=split_angle))
+        start_angle = split_angle+start_angle
+    return polys
+
+def make_point_grid(width,height):
+    '''
+    h,w to be consisted with rows, columns
+    '''
+    return product(range(width),range(height))
+
+
+#Speed up func
+def generate_codes(n):
+    """ The first command needs to be a "MOVETO" command,
+        all following commands are "LINETO" commands.
+    """
+    return [Path.MOVETO] + [Path.LINETO] * (n - 1)
+
+def pathify(polygon):
+    ''' Convert coordinates to path vertices. Objects produced by Shapely's
+        analytic methods have the proper coordinate order, no need to sort.
+
+        The codes will be all "LINETO" commands, except for "MOVETO"s at the
+        beginning of each subpath
+    '''
+    vertices = list(polygon.exterior.coords)
+    codes = generate_codes(len(polygon.exterior.coords))
+
+    for interior in polygon.interiors:
+        vertices.extend(interior.coords)
+        codes.extend(self.generate_codes(len(interior.coords)))
+
+    return Path(vertices, codes)
+
+def get_polygon_contain_indices(w,h,polygons):
+    '''
+    returns list of (w,h) indices
+    '''
+    points = list(make_point_grid(w,h))
+    paths = [pathify(poly) for poly in polygons]
+    return [path.contains_points(points) for path in paths]
+
+def split_image_by_angle(image_filename,start_angle,split_angle,num_rotations,return_polygons=True):
+    '''
+    Takes as input an image and the start angle and split angle, and splits it returning 
     
+    '''
+    im = Image.open(image_filename)
+    w = im.size[0]
+    h = im.size[1]
+    im_polygon = get_image_polygon(im)
+    polygons=split_shape(im_polygon,start_angle=start_angle,split_angle=split_angle,num_rotations=num_rotations)
+    poly_masks = get_polygon_contain_indices(w,h,polygons)
+    if return_polygons:
+        return poly_masks,polygons
+    else:
+        return poly_masks
     
-    
-#BASICALLY YOU JUST HAVE TO SPECIFY THE IMAGE TO LPAD IN THE __GET_ITEM__ on init
-# The dataset class for labeled data.
-class TriangleLabeledDataset(torch.utils.data.Dataset):    
-    def __init__(self, image_folder, annotation_file, scene_index, transform,extra_info=True,camera='CAM_FRONT.jpeg'):
-        """
-        Args:
-            image_folder (string): the location of the image folder
-            annotation_file (string): the location of the annotations
-            scene_index (list): a list of scene indices for the unlabeled data 
-            transform (Transform): The function to process the image
-            extra_info (Boolean): whether you want the extra information
-        """
-        
-        assert(camera in image_names)
-        self.camera = camera
-        self.mask = load_mask(camera)
-        self.image_folder = image_folder
-        self.annotation_dataframe = pd.read_csv(annotation_file)
-        self.scene_index = scene_index
-        self.transform = transform
-        self.extra_info = extra_info
-    
-    def __len__(self):
-        return self.scene_index.size * NUM_SAMPLE_PER_SCENE
-
-    def __getitem__(self, index):
-        scene_id = self.scene_index[index // NUM_SAMPLE_PER_SCENE]
-        sample_id = index % NUM_SAMPLE_PER_SCENE
-        sample_path = os.path.join(self.image_folder, f'scene_{scene_id}', f'sample_{sample_id}') 
-        
-        #get camera and only get that image
-        image_path = os.path.join(sample_path, self.camera)
-        image = Image.open(image_path)
-        image = self.transform(image)
-
-        data_entries = self.annotation_dataframe[(self.annotation_dataframe['scene'] == scene_id) & (self.annotation_dataframe['sample'] == sample_id)]
-        corners = data_entries[['fl_x', 'fr_x', 'bl_x', 'br_x', 'fl_y', 'fr_y','bl_y', 'br_y']].to_numpy()
-        categories = data_entries.category_id.to_numpy()
-        
-        ego_path = os.path.join(sample_path, 'ego.png')
-        ego_image = Image.open(ego_path)
-        ego_image = torchvision.transforms.functional.to_tensor(ego_image)
-        road_image = convert_map_to_road_map(ego_image)
-        ##Preprocess road image
-        road_image = torch.Tensor(road_image.numpy()*self.mask)
-        road_image_mod = road_image[self.mask]
-        
-        target = {}
-        target['bounding_box'] = torch.as_tensor(corners).view(-1, 2, 4)
-        target['category'] = torch.as_tensor(categories)
-
-        if self.extra_info:
-            actions = data_entries.action_id.to_numpy()
-            # You can change the binary_lane to False to get a lane with 
-            lane_image = convert_map_to_lane_map(ego_image, binary_lane=True)
-            
-            extra = {}
-            extra['action'] = torch.as_tensor(actions)
-            extra['ego_image'] = ego_image
-            extra['lane_image'] = lane_image
-
-            return image, target, road_image, extra, road_image_mod
-        
-        else:
-            return image, target, road_image, road_image_mod
-        
-
-def test_loader(camera='CAM_BACK.jpeg'):
-    transform = torchvision.transforms.ToTensor()
-    # The labeled dataset can only be retrieved by sample.
-    # And all the returned data are tuple of tensors, since bounding boxes may have different size
-    # You can choose whether the loader returns the extra_info. It is optional. You don't have to use it.
-    labeled_trainset = TriangleLabeledDataset(image_folder=image_folder,
-                                      annotation_file=annotation_csv,
-                                      scene_index=labeled_scene_index,
-                                      transform=transform,
-                                      extra_info=True,
-                                    camera = camera
-                                     )
-    trainloader = torch.utils.data.DataLoader(labeled_trainset , batch_size=2, \
-                                              shuffle=False, num_workers=2, collate_fn=collate_fn)
-
-    sample, target, road_image, extra = iter(trainloader).next()
-    plt.imshow(sample[0].numpy().transpose(1, 2, 0))
-    plt.axis('off');
+def plot_mask(mask):
     fig, ax = plt.subplots()
+    ax.imshow(mask, cmap='binary');
 
-    ax.imshow(road_image[0], cmap='binary');
-    plot_mask(labeled_trainset.mask)
-    return road_image[0],labeled_trainset.mask
     
-if __name__ == "__main__":   
-    ri,m=test_loader()
+# def get_camera_mask(camera_name):
+#     camera_centroid = camera_to_centroid[camera]
+#     return 
+    
+
+def get_split_info(image_filename_or_w_h_tuple,start_angle=-30,split_angle=60,num_rotations=1):
+    if isinstance(image_filename_or_w_h_tuple,str):
+        im = Image.open(image_filename_or_w_h_tuple)
+        w = im.size[0]
+        h = im.size[1]
+        im_polygon = get_image_polygon(im)
+    else:
+        w,h = image_filename_or_w_h_tuple
+        im_polygon = get_w_h_polygon(w,h)
+    polygons=split_shape(im_polygon,start_angle=start_angle,split_angle=split_angle,num_rotations=num_rotations)
+    poly_masks = get_polygon_contain_indices(w,h,polygons)
+    for i in range(len(polygons)):
+        plot_mask(poly_masks[i].reshape(w,h).transpose())
+        plt.plot(*polygons[i].exterior.xy)
+        plt.plot(polygons[i].centroid.coords[0][0],polygons[i].centroid.coords[0][1], 'x', color="red")
+    polymasks = [m.reshape(w,h).transpose() for m in poly_masks]
+    return polygons,poly_masks, [polygon.centroid.coords[0] for polygon in polygons]
+
+
+def save_masks(downsample_shape,start_angle=-35,split_angle=70,num_rotations=3):
+    p,masks,c = get_split_info(downsample_shape,start_angle,split_angle,num_rotations)
+    c = [(int(i[0]),int(i[1])) for i in c]
+
+    camera_centroid= {
+        'CAM_BACK.jpeg': masks[0],
+        'CAM_FRONT.jpeg': masks[1],
+        'CAM_BACK_LEFT.jpeg':masks[2],
+        'CAM_FRONT_RIGHT.jpeg':masks[3],
+        'CAM_FRONT_LEFT.jpeg':masks[4],
+        'CAM_BACK_RIGHT.jpeg':masks[5]
+    }
+
+    for k,v in camera_centroid.items():
+        with open(k.replace(".jpeg","_{downsample_shape[0]}.npy"),"wb") as f:
+            np.save(f,v)

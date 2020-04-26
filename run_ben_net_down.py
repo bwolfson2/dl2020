@@ -82,10 +82,10 @@ def train(feat_extractor, **train_kwargs):
         print("training {}".format(cam))
         #make camera specific train loader
         labeled_trainset = training_tools[cam][1]
-        train_loader = torch.utils.data.DataLoader(labeled_trainset , batch_size=2, 
+        train_loader = torch.utils.data.DataLoader(labeled_trainset , batch_size=train_kwargs["batch"], 
                                                   shuffle=True, num_workers=2, collate_fn=collate_fn)
         labeled_valset = training_tools[cam][2]
-        val_loader = torch.utils.data.DataLoader(labeled_valset , batch_size=2, 
+        val_loader = torch.utils.data.DataLoader(labeled_valset , batch_size=train_kwargs["batch"], 
                                                   shuffle=True, num_workers=2, collate_fn=collate_fn)
 
 
@@ -151,6 +151,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--downsample", help="The downsample size for the image (1 dimension)",
                         type=int)
+    parser.add_argument("--batch-size", help="batch-size",
+                        type=int)
     args = parser.parse_args()
     downsample_shape = (args.downsample,args.downsample)
     
@@ -200,7 +202,7 @@ if __name__ == "__main__":
     feat_extractor.fc = Identity() #change it to identity
 
     train_kwargs={
-        'epochs':5,
+        'epochs':20,
         'lr': 2e-05,
         'momentum': 0.99,
         'eps':1e-08

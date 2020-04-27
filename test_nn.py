@@ -232,10 +232,10 @@ def train(feat_extractor, **train_kwargs):
                 for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
                     if e < train_kwargs["eto"]:
                         print("training output layer")
-                        degrad_layers(model,0) #degrad the base model
+                        degrad_layers(model,[0]) #degrad the base model
                     else:
                         print("training whole network")
-                        grad_layers(model,0)
+                        grad_layers(model,[0])
                     sample_ = torch.stack(sample,0).cuda() #should be [batch size,3, h,w]
                     labels = torch.stack(road_image_mod, 0).cuda() #should be [batch size, cropsize]
 

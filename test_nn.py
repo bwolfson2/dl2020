@@ -68,17 +68,17 @@ def download_file(filename,cloud_filename):
     return filename
 
 def save_torch(filename,item,cloud=True):
-    torch.save(item, filename)
+    res = torch.save(item, filename)
     if cloud:
         res = save_file_to_cloud(filename)
     return res
 
 def save_cam_model(cam,item,cloud = True):
     filename = "./models/resnet_1"+cam.replace(".jpeg",".pt")
-    save_torch(filename,item)
+    save_torch(filename,item,cloud)
     fe_filename = "latest_fe_sd.pt"
     filename = f"./models/{fe_filename}"
-    return save_torch(filename,item['feat_extractor_state_dict'])
+    return save_torch(filename,item['feat_extractor_state_dict'],cloud)
     
 
 
@@ -149,6 +149,17 @@ def load_cam_model(cam,latest_fe = True,cloud = True):
     model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sdr)    
     return model
 
+
+def degrad_layers(model,layers):
+    for layer in layers:
+        for param in model.parameters():
+            param.requires_grad = False
+            
+def grad_layers(model,layers):
+    for layer in layers:
+        for param in model.parameters():
+            param.requires_grad = True
+
 def test_model(loader, model):
     """
     Help function that tests the model's performance on a dataset
@@ -181,7 +192,10 @@ def train(feat_extractor, **train_kwargs):
     #save model
     if not os.path.exists("./models"):
         os.mkdir("models")
-        
+    
+    print("args to train function:")
+    print(train_kwargs)
+    
     for cycle in range(train_kwargs["train_cycles"]):
         for cam in image_names: #let's try just front camera
             print("training {}".format(cam))
@@ -194,15 +208,16 @@ def train(feat_extractor, **train_kwargs):
                                                       shuffle=True, num_workers=2, collate_fn=collate_fn)
 
 
-            if not train_kwargs.get("load_models",False): 
+            if train_kwargs.get("load_models",False): 
+                model = load_cam_model(cam,latest_fe=True,cloud=train_kwargs["load_cloud"]).cuda()
+                
+            else:
                 output_layer = training_tools[cam][0] #output the layer
 
 
                 #make camera spcific model
                 model = nn.Sequential(feat_extractor, output_layer, nn.Sigmoid()).cuda()
 
-            else:
-                model = load_cam_model(cam,latest_fe=True,cloud=train_kwargs["load_cloud"]).cuda()
 
             criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
             param_list = [p for p in model.parameters() if p.requires_grad]
@@ -210,12 +225,17 @@ def train(feat_extractor, **train_kwargs):
             train_losses = []
             val_accs = []
 
-            model.train()
             for e in range(train_kwargs["epochs"]):
                 print(f"epoch: {e}")
                 t = time.process_time()
 
                 for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
+                    if e < train_kwargs["eto"]:
+                        print("training output layer")
+                        degrad_layers(model,0) #degrad the base model
+                    else:
+                        print("training whole network")
+                        grad_layers(model,0)
                     sample_ = torch.stack(sample,0).cuda() #should be [batch size,3, h,w]
                     labels = torch.stack(road_image_mod, 0).cuda() #should be [batch size, cropsize]
 
@@ -275,6 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("--tc", help="training_cycles",default=1,
                     type=int)    
     parser.add_argument("--ls",help='save last cycle',default=1,type=int)
+    parser.add_argument("--eto",help='how many epochs to train output layer alone',default=0,type=int)
     args = parser.parse_args()
     downsample_shape = (args.d,args.d)
     
@@ -334,11 +355,13 @@ if __name__ == "__main__":
         'save_cloud':args.s,
         'train_cycles':args.tc,
         'lsat_save':args.ls,
+        'eto':args.eto
         }
+    
     
     train(feat_extractor, **train_kwargs)
     
     print('finished')
 
 #sample command
-#python test_nn -d 100 -b 100 -e 5 -s 0 -l 0 -tc 10 -ls 1
+#python test_nn.py --d 100 --b 100 --e 5 --s 0 --l 0 --tc 10 --ls 1 --eto 1

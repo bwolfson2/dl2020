@@ -54,9 +54,8 @@ def gen_train_val_index(labeled_scene_index):
 def save_file_to_cloud(filename):
     current_dir = os.getcwd()
     path = os.path.join(current_dir,"bucket_upload.sh")
-    if cloud:
-        subprocess.run(f"{path} {filename}",shell=True)
-    return filename
+    result = subprocess.run(f"{path} {filename}",shell=True)
+    return result
 
 def download_file(filename,cloud_filename):
     current_dir = os.getcwd()
@@ -68,19 +67,80 @@ def download_file(filename,cloud_filename):
     print(f"loading {filename}")
     return filename
 
-def save_cam_model(item,filename,cloud = True):
+def save_torch(filename,item,cloud=True):
     torch.save(item, filename)
     if cloud:
-        save_file_to_cloud(filename)
-    return filename
+        res = save_file_to_cloud(filename)
+    return res
 
-
-
+def save_cam_model(cam,item,cloud = True):
+    filename = "./models/resnet_1"+cam.replace(".jpeg",".pt")
+    save_torch(filename,item)
+    fe_filename = "latest_fe_sd.pt"
+    filename = f"./models/{fe_filename}"
+    return save_torch(filename,item['feat_extractor_state_dict'])
     
-def load_model(filename,cloud_filename=None):
+
+
+        
+    
+    
+def load_object(filename,cloud_filename=None):
     if cloud_filename:
+        print(f"Downloading {cloud_filename}")
         download_file(filename,cloud_filename)
+    print(f"Loading {filename}")
     return torch.load(filename)
+
+
+
+
+def get_output_layer_size(cam,downsample_shape):
+    return load_mask(get_mask_name(cam,downsample_shape),downsample_shape).sum()
+
+def get_output_layer(input_size,output_layer_size):
+    return nn.Linear(input_size,output_layer_size)
+
+def create_blank_model(base_model,last_layer_size,output_layer_size):
+    base_model = base_model()
+    base_model.fc = Identity()
+    output_layer = get_output_layer(last_layer_size,output_layer_size)
+    return nn.Sequential(base_model,output_layer,nn.Sigmoid())
+
+def get_feature_extractor(base_model):
+    model = base_model()
+    model.fc = Identity()
+    return model
+
+def load_model_with_state_dicts(base_model,feature_extractor_sd,output_layer_sd):
+    fe = get_feature_extractor(base_model)
+    fe.load_state_dict(feature_extractor_sd)
+    output_layer = get_output_layer(output_layer_sd["weight"][0].size()[0],\
+                                    output_layer_size=output_layer_sd["bias"].size()[0])
+    return nn.Sequential(fe,output_layer,nn.Sigmoid())
+
+
+def create_model_with_feature_extractor(feature_extractor,last_layer_size,output_layer_size):
+    feature_extractor.fc = Identity()
+    output_layer = get_output_layer(last_layer_size,output_layer_size)
+    return nn.Sequential(feature_extractor,output_layer,nn.Sigmoid())
+
+
+def load_cam_model(cam,latest_fe = True):
+    cam_short = cam.replace('jpeg','pt')
+    cloud_filename = f"resnet_1{cam_short}"
+    filename = f"./models/{cloud_filename}"
+    out_sd = load_object(filename,cloud_filename)
+    out_sd = out_sd["output_layer_state_dict"]
+    if latest_fe:
+        cloud_filename = "latest_fe_sd.pt"
+        filename = f"./models/{cloud_filename}"
+        fe_sd = load_object(filename,cloud_filename)
+    else:
+        fe_sd = out_sd["feat_extractor_state_dict"]
+    
+    model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sd)    
+    return model
 
 def test_model(loader, model):
     """
@@ -111,6 +171,11 @@ def test_model(loader, model):
 
 
 def train(feat_extractor, **train_kwargs):
+    #save model
+    if not os.path.exists("./models"):
+        os.mkdir("models")
+        
+    
     for cam in image_names: #let's try just front camera
         print("training {}".format(cam))
         #make camera specific train loader
@@ -122,12 +187,15 @@ def train(feat_extractor, **train_kwargs):
                                                   shuffle=True, num_workers=2, collate_fn=collate_fn)
 
 
-
-        output_layer = training_tools[cam][0] #output the layer
+        if not train_kwargs.get("load_models",False): 
+            output_layer = training_tools[cam][0] #output the layer
 
     
-        #make camera spcific model
-        model = nn.Sequential(feat_extractor, output_layer, nn.Sigmoid()).cuda()
+            #make camera spcific model
+            model = nn.Sequential(feat_extractor, output_layer, nn.Sigmoid()).cuda()
+        
+        else:
+            model = load_cam_model(cam,latest_fe=True).cuda()
 
         criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
         param_list = [p for p in model.parameters() if p.requires_grad]
@@ -137,6 +205,7 @@ def train(feat_extractor, **train_kwargs):
 
         model.train()
         for e in range(train_kwargs["epochs"]):
+            print("epoch: {e}")
             t = time.process_time()
 
             for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
@@ -161,17 +230,90 @@ def train(feat_extractor, **train_kwargs):
                                e+1, i+1, loss,  val_acc, elapsed_time))
                     model.train() #go back to training
                     t = time.process_time()
-        #save model
+
         print("save camera model") 
         item = {
 
             'model_state_dict': model.state_dict(),
             'feat_extractor_state_dict':  feat_extractor.state_dict(),
-            'output_layer_state_dict': output_layer.state_dict(),
+            'output_layer_state_dict': model[1].state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'train_losses': train_losses,
             'val_accs': val_accs
             }
-        filename = "./models/resnet_1"+cam[:-5]+".pt"
+        save_cam_model(cam,item)
     
     
+
+    
+    
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='Run neural net, first argument is downsampling rate')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--downsample", help="The downsample size for the image (1 dimension)",
+                        type=int)
+    parser.add_argument("--batch", help="batch-size",
+                        type=int)
+    parser.add_argument("--epochs", help="epochs",
+                    type=int)
+    args = parser.parse_args()
+    downsample_shape = (args.downsample,args.downsample)
+    
+    random.seed(0)
+    np.random.seed(0)
+    torch.manual_seed(0);
+
+
+    image_folder = 'data'
+    annotation_csv = 'data/annotation.csv'
+
+    
+    unlabeled_scene_index = np.arange(106)
+    labeled_scene_index = np.arange(106, 134)
+    
+    
+    normalize = torchvision.transforms.Normalize(mean=[0.6394939, 0.6755114, 0.7049375],
+                                         std=[0.31936955, 0.3117349 , 0.2953726 ])
+
+    transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                               normalize
+                                               ])
+
+    train_labeled_scene_index, val_labeled_scene_index = gen_train_val_index(labeled_scene_index)
+    crop_size = {cam:get_output_layer_size(cam,downsample_shape) for cam in image_names}
+    print(crop_size)
+    training_tools = {cam: (nn.Linear(512, crop_size[cam]), 
+                           #training set
+                           TriangleLabeledDataset(image_folder=image_folder,
+                                  annotation_file=annotation_csv,
+                                  scene_index=train_labeled_scene_index,
+                                  transform=transform,
+                                  extra_info=True,
+                                camera = cam,downsample_shape=downsample_shape),
+                           #validation set
+                            TriangleLabeledDataset(image_folder=image_folder,
+                                  annotation_file=annotation_csv,
+                                  scene_index=val_labeled_scene_index,
+                                  transform=transform,
+                                  extra_info=True,
+                                camera = cam,downsample_shape=downsample_shape),
+                       
+                       
+                       ) for cam in image_names}
+    
+    feat_extractor = torchvision.models.resnet18()
+    feat_extractor.fc = Identity() #change it to identity
+
+    train_kwargs={
+        'epochs':args.epochs,
+        'lr': 2e-05,
+        'momentum': 0.99,
+        'eps':1e-08,
+        'batch':args.batch,
+        'load_models':True
+        }
+    
+    train(feat_extractor, **train_kwargs)
+    
+    print('finished')

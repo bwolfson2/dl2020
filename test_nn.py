@@ -117,6 +117,7 @@ def load_model_with_state_dicts(base_model,feature_extractor_sd,output_layer_sd)
     fe.load_state_dict(feature_extractor_sd)
     output_layer = get_output_layer(output_layer_sd["weight"][0].size()[0],\
                                     output_layer_size=output_layer_sd["bias"].size()[0])
+    output_layer.load_state_dict(output_layer_sd)
     return nn.Sequential(fe,output_layer,nn.Sigmoid())
 
 
@@ -126,20 +127,26 @@ def create_model_with_feature_extractor(feature_extractor,last_layer_size,output
     return nn.Sequential(feature_extractor,output_layer,nn.Sigmoid())
 
 
-def load_cam_model(cam,latest_fe = True):
+def load_cam_model(cam,latest_fe = True,cloud = True):
     cam_short = cam.replace('jpeg','pt')
     cloud_filename = f"resnet_1{cam_short}"
     filename = f"./models/{cloud_filename}"
-    out_sd = load_object(filename,cloud_filename)
-    out_sd = out_sd["output_layer_state_dict"]
+    if cloud:
+        out_sd = load_object(filename,cloud_filename)
+    else:
+        out_sd = load_object(filename)
+    out_sdr = out_sd["output_layer_state_dict"]
     if latest_fe:
         cloud_filename = "latest_fe_sd.pt"
         filename = f"./models/{cloud_filename}"
-        fe_sd = load_object(filename,cloud_filename)
+        if cloud:
+            fe_sd = load_object(filename,cloud_filename)
+        else:
+            fe_sd = load_object(filename)
     else:
         fe_sd = out_sd["feat_extractor_state_dict"]
     
-    model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sd)    
+    model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sdr)    
     return model
 
 def test_model(loader, model):
@@ -242,7 +249,7 @@ def train(feat_extractor, **train_kwargs):
             'val_accs': val_accs
             }
         save_cam_model(cam,item)
-    
+
     
 
     
@@ -251,12 +258,16 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Run neural net, first argument is downsampling rate')
     parser = argparse.ArgumentParser()
-    parser.add_argument("--downsample", help="The downsample size for the image (1 dimension)",
+    parser.add_argument("--d", help="The downsample size for the image (1 dimension)",
                         type=int)
-    parser.add_argument("--batch", help="batch-size",
+    parser.add_argument("--b", help="batch-size",
                         type=int)
-    parser.add_argument("--epochs", help="epochs",
+    parser.add_argument("--e", help="epochs",
                     type=int)
+    parser.add_argument("--s", help="save to cloud?",
+                    type=int)
+    parser.add_argument("--l", help="load from cloud?",
+                    type=int)    
     args = parser.parse_args()
     downsample_shape = (args.downsample,args.downsample)
     

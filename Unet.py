@@ -1,6 +1,8 @@
 ##credit##
 ##https://github.com/Hsankesara/DeepResearch/blob/master/UNet/Unet.py
 
+##modifications by CP
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -32,7 +34,7 @@ class UNet(nn.Module):
             torch.nn.Conv2d(kernel_size=kernel_size, in_channels=mid_channel, out_channels=mid_channel),
             torch.nn.ReLU(),
             torch.nn.BatchNorm2d(mid_channel),
-            torch.nn.ConvTranspose2d(in_channels=mid_channel, out_channels=out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
+            torch.nn.ConvTranspose2d(in_channels=mid_channel, out_channels=out_channels, kernel_size=3, stride=2,  padding=1, output_padding=1)
                     )
         return  block
 
@@ -52,7 +54,28 @@ class UNet(nn.Module):
             torch.nn.BatchNorm2d(out_channels),
             )
         return  block
-
+    
+    ## EDITs ###
+    def refit_block(self, in_channels, out_channels, kernel_size=5):
+        '''
+        This refits it so the last 2 dim of output is 800 , 800, matching the label road image
+        '''
+        block = torch.nn.Sequential(
+            *([torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size), #stride default = 1
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(out_channels)]*23))
+        '''
+            torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(out_channels),
+            torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size),
+        
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(out_channels))
+        '''
+        return block
+    ## EDIT END ###
+    
     def __init__(self, in_channel, out_channel):
         super(UNet, self).__init__()
         #Encode
@@ -76,11 +99,16 @@ class UNet(nn.Module):
         self.conv_decode3 = self.expansive_block(512, 256, 128)
         self.conv_decode2 = self.expansive_block(256, 128, 64)
         self.final_layer = self.final_block(128, 64, out_channel)
+        ### EDIT ###
+        self.refit_layer = self.refit_block(in_channels = 1, out_channels = 1)
+        self.sigmoid = torch.nn.Sigmoid()  
+        ### EDIT END ###
 
     def crop_and_concat(self, upsampled, bypass, crop=False):
         """
         This layer crop the layer from contraction block and concat it with expansive block vector
         """
+        ### EDIT ###
         if crop:
             #print("upsampled size {}, bypass size {}".format(upsampled.size(), bypass.size()))
             diff = bypass.size()[2] - upsampled.size()[2]
@@ -95,7 +123,7 @@ class UNet(nn.Module):
             #print("c {}".format(c))
             #print("upsampled size {}, bypass size {}".format(upsampled.size(), bypass.size()))
             
-             
+        ###EDIT END ###      
             
         return torch.cat((upsampled, bypass), 1)
 
@@ -110,13 +138,28 @@ class UNet(nn.Module):
         # Bottleneck
         bottleneck1 = self.bottleneck(encode_pool3)
         # Decode
+        #print("bottleneck1 {},  encode_block3{}".format(bottleneck1.shape, encode_block3.shape))
         decode_block3 = self.crop_and_concat(bottleneck1, encode_block3, crop=True)
+        
+        #print("decode_block3{}".format(decode_block3.shape))
         cat_layer2 = self.conv_decode3(decode_block3)
+        
+        #print("cat_layer2 {},  decode_block2{}".format(cat_layer2.shape, encode_block2.shape))
         decode_block2 = self.crop_and_concat(cat_layer2, encode_block2, crop=True)
+        
+        #print("decode_block2{}".format(decode_block2.shape))
         cat_layer1 = self.conv_decode2(decode_block2)
+        
+        #print("cat_layer1 shape {}, encode_bl1 shape{}".format(cat_layer1.shape, encode_block1.shape))
         decode_block1 = self.crop_and_concat(cat_layer1, encode_block1, crop=True)
         
-        print("pre final shape {}".format(decode_block1.shape))
+        ### EDIT ###
+        #print("pre final shape {}".format(decode_block1.shape))
         
         final_layer = self.final_layer(decode_block1)
-        return  final_layer
+        #print("pre refit layer shape {}".format(final_layer.shape))
+        refit_layer = self.refit_layer(final_layer)    
+        output = self.sigmoid(refit_layer)     
+        return  output
+    
+        ### EDIT END ###

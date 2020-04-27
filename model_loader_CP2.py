@@ -102,13 +102,13 @@ class ModelLoader():
         B1 = torch.cat([D1, E1, F1], 1)
         B2 = torch.cat([D2, E2, F2], 1)
         B3 = torch.cat([D3, E3, F3], 1)
-        print("T1 shape {}".format(T1.shape))
+        #print("T1 shape {}".format(T1.shape))
 
         comb1 = torch.cat([T1,B1], 0)
         comb2 = torch.cat([T2,B2], 0)
         comb3 = torch.cat([T3,B3], 0)
 
-        print("comb1 shape {}".format(comb1.shape)) #should be 768, 612
+        #print("comb1 shape {}".format(comb1.shape)) #should be 768, 612
         comb = torch.stack([comb1, comb2, comb3])
         toImg = transforms.ToPILImage()
         result = toImg(comb)
@@ -122,7 +122,7 @@ class ModelLoader():
         
         #sew together the 6 images (across 3 channels) to size (768, 612) then resize to (880, 880) 
         
-        transTot = transforms.Compose([transforms.Resize((880,880)), transforms.ToTensor()])        
+        transTot = transforms.Compose([transforms.Resize((800,800)), transforms.ToTensor()])        
         bstack_list = []
 
         for i in range(len(samples)): #for each of the 2 in the batch

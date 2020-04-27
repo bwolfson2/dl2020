@@ -152,12 +152,12 @@ def load_cam_model(cam,latest_fe = True,cloud = True):
 
 def degrad_layers(model,layers):
     for layer in layers:
-        for param in model.parameters():
+        for param in model[layer].parameters():
             param.requires_grad = False
             
 def grad_layers(model,layers):
     for layer in layers:
-        for param in model.parameters():
+        for param in model[layer].parameters():
             param.requires_grad = True
 
 def test_model(loader, model):
@@ -220,22 +220,24 @@ def train(feat_extractor, **train_kwargs):
 
 
             criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
-            param_list = [p for p in model.parameters() if p.requires_grad]
-            optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
             train_losses = []
             val_accs = []
 
             for e in range(train_kwargs["epochs"]):
                 print(f"epoch: {e}")
                 t = time.process_time()
+                if e < train_kwargs["eto"]:
+                    print("training output layer")
+                    degrad_layers(model,[0]) #degrad the base model
+                else:
+                    print("training whole network")
+                    grad_layers(model,[0])
+
+                param_list = [p for p in model.parameters() if p.requires_grad]
+                optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
 
                 for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
-                    if e < train_kwargs["eto"]:
-                        print("training output layer")
-                        degrad_layers(model,[0]) #degrad the base model
-                    else:
-                        print("training whole network")
-                        grad_layers(model,[0])
+
                     sample_ = torch.stack(sample,0).cuda() #should be [batch size,3, h,w]
                     labels = torch.stack(road_image_mod, 0).cuda() #should be [batch size, cropsize]
 

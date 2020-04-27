@@ -205,7 +205,7 @@ def train(feat_extractor, **train_kwargs):
 
         model.train()
         for e in range(train_kwargs["epochs"]):
-            print("epoch: {e}")
+            print(f"epoch: {e}")
             t = time.process_time()
 
             for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
@@ -221,7 +221,7 @@ def train(feat_extractor, **train_kwargs):
                 train_losses.append(loss.item())
 
                 # validate every 200 iterations
-                if i > 0 and i % 100== 0:
+                if i > 0 and i % 10== 0:
                     val_acc = test_model(val_loader, model) #calls model.eval()
                     val_accs.append(val_acc)
                     #do some stuff

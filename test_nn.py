@@ -182,73 +182,77 @@ def train(feat_extractor, **train_kwargs):
     if not os.path.exists("./models"):
         os.mkdir("models")
         
-    
-    for cam in image_names: #let's try just front camera
-        print("training {}".format(cam))
-        #make camera specific train loader
-        labeled_trainset = training_tools[cam][1]
-        train_loader = torch.utils.data.DataLoader(labeled_trainset , batch_size=train_kwargs["batch"], 
-                                                  shuffle=True, num_workers=2, collate_fn=collate_fn)
-        labeled_valset = training_tools[cam][2]
-        val_loader = torch.utils.data.DataLoader(labeled_valset , batch_size=train_kwargs["batch"], 
-                                                  shuffle=True, num_workers=2, collate_fn=collate_fn)
+    for cycle in range(train_kwargs["train_cycles"]):
+        for cam in image_names: #let's try just front camera
+            print("training {}".format(cam))
+            #make camera specific train loader
+            labeled_trainset = training_tools[cam][1]
+            train_loader = torch.utils.data.DataLoader(labeled_trainset , batch_size=train_kwargs["batch"], 
+                                                      shuffle=True, num_workers=2, collate_fn=collate_fn)
+            labeled_valset = training_tools[cam][2]
+            val_loader = torch.utils.data.DataLoader(labeled_valset , batch_size=train_kwargs["batch"], 
+                                                      shuffle=True, num_workers=2, collate_fn=collate_fn)
 
 
-        if not train_kwargs.get("load_models",False): 
-            output_layer = training_tools[cam][0] #output the layer
+            if not train_kwargs.get("load_models",False): 
+                output_layer = training_tools[cam][0] #output the layer
 
-    
-            #make camera spcific model
-            model = nn.Sequential(feat_extractor, output_layer, nn.Sigmoid()).cuda()
-        
-        else:
-            model = load_cam_model(cam,latest_fe=True).cuda()
 
-        criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
-        param_list = [p for p in model.parameters() if p.requires_grad]
-        optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
-        train_losses = []
-        val_accs = []
+                #make camera spcific model
+                model = nn.Sequential(feat_extractor, output_layer, nn.Sigmoid()).cuda()
 
-        model.train()
-        for e in range(train_kwargs["epochs"]):
-            print(f"epoch: {e}")
-            t = time.process_time()
+            else:
+                model = load_cam_model(cam,latest_fe=True,cloud=train_kwargs["load_cloud"]).cuda()
 
-            for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
-                sample_ = torch.stack(sample,0).cuda() #should be [batch size,3, h,w]
-                labels = torch.stack(road_image_mod, 0).cuda() #should be [batch size, cropsize]
+            criterion = torch.nn.BCELoss(reduction = 'sum') #trying summation
+            param_list = [p for p in model.parameters() if p.requires_grad]
+            optimizer = torch.optim.Adam(param_list, lr=train_kwargs["lr"], eps=train_kwargs["eps"])
+            train_losses = []
+            val_accs = []
 
-                optimizer.zero_grad()
-                outputs = model(sample_) 
+            model.train()
+            for e in range(train_kwargs["epochs"]):
+                print(f"epoch: {e}")
+                t = time.process_time()
 
-                loss = criterion(outputs, labels.float())
-                loss.backward()
-                optimizer.step()
-                train_losses.append(loss.item())
+                for i ,(sample, target, road_image, extra, road_image_mod) in enumerate(train_loader):
+                    sample_ = torch.stack(sample,0).cuda() #should be [batch size,3, h,w]
+                    labels = torch.stack(road_image_mod, 0).cuda() #should be [batch size, cropsize]
 
-                # validate every 200 iterations
-                if i > 0 and i % 10== 0:
-                    val_acc = test_model(val_loader, model) #calls model.eval()
-                    val_accs.append(val_acc)
-                    #do some stuff
-                    elapsed_time = time.process_time() - t
-                    print('Epoch: [{}], Step: [{}], Train Loss {:.4f}, Validation Acc: {:.4f}, time {:.4f}'.format( 
-                               e+1, i+1, loss,  val_acc, elapsed_time))
-                    model.train() #go back to training
-                    t = time.process_time()
+                    optimizer.zero_grad()
+                    outputs = model(sample_) 
 
-        print("save camera model") 
-        item = {
+                    loss = criterion(outputs, labels.float())
+                    loss.backward()
+                    optimizer.step()
+                    train_losses.append(loss.item())
 
-            'model_state_dict': model.state_dict(),
-            'feat_extractor_state_dict':  feat_extractor.state_dict(),
-            'output_layer_state_dict': model[1].state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'train_losses': train_losses,
-            'val_accs': val_accs
-            }
-        save_cam_model(cam,item)
+                    # validate every 200 iterations
+                    if i > 0 and i % 10== 0:
+                        val_acc = test_model(val_loader, model) #calls model.eval()
+                        val_accs.append(val_acc)
+                        #do some stuff
+                        elapsed_time = time.process_time() - t
+                        print('Epoch: [{}], Step: [{}], Train Loss {:.4f}, Validation Acc: {:.4f}, time {:.4f}'.format( 
+                                   e+1, i+1, loss,  val_acc, elapsed_time))
+                        model.train() #go back to training
+                        t = time.process_time()
+
+            print("save camera model") 
+            item = {
+
+                'model_state_dict': model.state_dict(),
+                'feat_extractor_state_dict':  feat_extractor.state_dict(),
+                'output_layer_state_dict': model[1].state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'train_losses': train_losses,
+                'val_accs': val_accs
+                }
+            save_cam_model(cam,item,cloud=train_kwargs["save_cloud"])
+            if cycle == (train_kwargs["train_cycles"] -1 ) and\
+            train_kwargs["last_save"] and\
+            not train_kwargs["save_cloud"]:
+                save_cam_model(cam,item,cloud=True)
 
     
 
@@ -258,18 +262,21 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Run neural net, first argument is downsampling rate')
     parser = argparse.ArgumentParser()
-    parser.add_argument("--d", help="The downsample size for the image (1 dimension)",
+    parser.add_argument("--d", help="The downsample size for the image (1 dimension)",default=100,
                         type=int)
-    parser.add_argument("--b", help="batch-size",
+    parser.add_argument("--b", help="batch-size",default=100,
                         type=int)
-    parser.add_argument("--e", help="epochs",
+    parser.add_argument("--e", help="epochs",default=5,
                     type=int)
-    parser.add_argument("--s", help="save to cloud?",
+    parser.add_argument("--s", help="save to cloud? default no",default=0,
                     type=int)
-    parser.add_argument("--l", help="load from cloud?",
+    parser.add_argument("--l", help="load from cloud? default no",default=0,
                     type=int)    
+    parser.add_argument("--tc", help="training_cycles",default=1,
+                    type=int)    
+    parser.add_argument("--ls",help='save last cycle',default=1,type=int)
     args = parser.parse_args()
-    downsample_shape = (args.downsample,args.downsample)
+    downsample_shape = (args.d,args.d)
     
     random.seed(0)
     np.random.seed(0)
@@ -317,14 +324,21 @@ if __name__ == "__main__":
     feat_extractor.fc = Identity() #change it to identity
 
     train_kwargs={
-        'epochs':args.epochs,
+        'epochs':args.e,
         'lr': 2e-05,
         'momentum': 0.99,
         'eps':1e-08,
-        'batch':args.batch,
-        'load_models':True
+        'batch':args.b,
+        'load_models':True,
+        'load_cloud': args.l,
+        'save_cloud':args.s,
+        'train_cycles':args.tc,
+        'lsat_save':args.ls,
         }
     
     train(feat_extractor, **train_kwargs)
     
     print('finished')
+
+#sample command
+#python test_nn -d 100 -b 100 -e 5 -s 0 -l 0 -tc 10 -ls 1

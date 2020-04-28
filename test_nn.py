@@ -249,16 +249,15 @@ def train(feat_extractor, **train_kwargs):
                     optimizer.step()
                     train_losses.append(loss.item())
 
-                    # validate every 200 iterations
-                    if i > 0 and i % 10== 0:
-                        val_acc = test_model(val_loader, model) #calls model.eval()
-                        val_accs.append(val_acc)
-                        #do some stuff
-                        elapsed_time = time.process_time() - t
-                        print('Epoch: [{}], Step: [{}], Train Loss {:.4f}, Validation Acc: {:.4f}, time {:.4f}'.format( 
-                                   e+1, i+1, loss,  val_acc, elapsed_time))
-                        model.train() #go back to training
-                        t = time.process_time()
+                # validate every 200 iterations
+                val_acc = test_model(val_loader, model) #calls model.eval()
+                val_accs.append(val_acc)
+                #do some stuff
+                elapsed_time = time.process_time() - t
+                print('Epoch: [{}], Step: [{}], Train Loss {:.4f}, Validation Acc: {:.4f}, time {:.4f}'.format( 
+                           e+1, i+1, loss,  val_acc, elapsed_time))
+                model.train() #go back to training
+                t = time.process_time()
 
             print("save camera model") 
             item = {

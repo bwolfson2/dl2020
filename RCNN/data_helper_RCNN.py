@@ -145,7 +145,7 @@ class LabeledDataset_RCNN(torch.utils.data.Dataset):
         boxes = get_boxes(corners)
         labels = convert_categories(categories)
         masks = gen_masks( corners , labels) 
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) #this may need to be rounded but leave for now
         # suppose all instances are not crowd
         iscrowd = torch.zeros((len(labels)), dtype=torch.int64)
         target["boxes"]  = boxes
@@ -195,14 +195,16 @@ def get_boxes(corners): #this is the corners of the annotaion file
     #['fl_x', 'fr_x', 'bl_x', 'br_x', 'fl_y', 'fr_y','bl_y', 'br_y']
     #translate this to boxes to the fastRNN format
     xvals = corners[:, :4] *10 +400
-    yvals = corners[:, 4:]*10 +400 #not flipping the y vals
+    yvals = -(corners[:, 4:]*10 +400) #not flipping the y vals
     
     boxes = []
-    for i in range (len(corners)):
-        xmin = np.min(xvals)
-        xmax = np.max(xvals)
-        ymin = np.min(yvals)
-        ymax = np.max(yvals)
+    num_obj = corners.shape[0]
+    print(corners.shape, num_obj)
+    for i in range (num_obj):
+        xmin = np.min(xvals[i])
+        xmax = np.max(xvals[i])
+        ymin = np.min(yvals[i])
+        ymax = np.max(yvals[i])
     
         boxes.append([xmin, ymin, xmax, ymax])
 
@@ -244,19 +246,19 @@ def gen_masks(corners , labels, img_w = 800, img_h = 800):
     #print('corners shape {}'.format(corners.shape))
     corners = corners*10 +400 #convert into the road image format of 800, 800 with center being 400, 400
     xvals = np.round(corners[:, :4], 0).astype(int)
-    yvals = np.round(corners[:, 4:], 0).astype(int)
+    yvals = -np.round(corners[:, 4:], 0).astype(int)
     num_obj = len(labels)
     #print('num_obj {}'.format(num_obj))
     masks = torch.zeros((num_obj, img_w, img_h))
     
     for i in range(num_obj):
-        xmin = np.min(xvals[i])
-        xmax = np.max(xvals[i])
+        colmin = np.min(xvals[i])
+        colmax = np.max(xvals[i])
         
-        ymin = np.min(yvals[i])
-        ymax = np.max(yvals[i])
+        rowmin = np.min(yvals[i])
+        rowmax = np.max(yvals[i])
         #print("mask shape {}".format(masks.shape))
         #print("i {}, xmin {}, xmax {}, ymin {}, ymax {} label {}".format(i, xmin, xmax, ymin, ymax, labels[i]))
-        masks[i, xmin:xmax, ymin:ymax] = labels[i]
+        masks[i, rowmin:rowmax, colmin:colmax] = labels[i]
        
     return masks

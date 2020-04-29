@@ -26,7 +26,7 @@ def draw_box(ax, corners, color):
     # the corners are in meter and time 10 will convert them in pixels
     # Add 400, since the center of the image is at pixel (400, 400)
     # The negative sign is because the y axis is reversed for matplotlib
-    ax.plot(point_squence.T[0] * 10 + 400, -point_squence.T[1] * 10 + 400, color=color)
+    ax.plot(point_squence.T[0] * 10 + 400, -point_squence.T[1] * 10 + 400, color=color) #take out the negative
 
 
 

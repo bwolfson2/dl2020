@@ -10,7 +10,7 @@ from pycocotools import mask as coco_mask
 from pycocotools.coco import COCO
 
 import transforms as T
-
+import numpy as np
 
 class FilterAndRemapCocoCategories(object):
     def __init__(self, categories, remap=True):
@@ -183,7 +183,11 @@ def convert_to_coco_api(ds):
             ann['iscrowd'] = iscrowd[i]
             ann['id'] = ann_id
             if 'masks' in targets:
-                ann["segmentation"] = coco_mask.encode(masks[i].numpy())
+                ### CP EDIT ###
+                mask = torch.as_tensor(masks[i], dtype=torch.uint8).numpy()
+                mask = np.asfortranarray(mask)
+                ann["segmentation"] = coco_mask.encode(mask) #(masks[i].numpy())
+                ### CP EDIT END ###
             if 'keypoints' in targets:
                 ann['keypoints'] = keypoints[i]
                 ann['num_keypoints'] = sum(k != 0 for k in keypoints[i][2::3])

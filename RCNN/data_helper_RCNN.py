@@ -199,7 +199,7 @@ def get_boxes(corners): #this is the corners of the annotaion file
     
     boxes = []
     num_obj = corners.shape[0]
-    print(corners.shape, num_obj)
+    #print(corners.shape, num_obj)
     for i in range (num_obj):
         xmin = np.min(xvals[i])
         xmax = np.max(xvals[i])
@@ -235,7 +235,7 @@ def convert_categories(categories):
     labels = []
     for c in categories:
         labels.append(map_dict[c])
-    return labels
+    return torch.tensor(labels)
 
 def gen_masks(corners , labels, img_w = 800, img_h = 800):
     '''

@@ -39,7 +39,7 @@ unzip client.zip
 ./bucket_upload.sh <file name>
 
 #to download files from the google account
-gsutil cp gs://dl2020/<file name> <file name>
+gsutil cp gs://dl20202/<file name> <file name>
 
 #to look at the google account contents : https://console.cloud.google.com/storage/browser/dl2020
 

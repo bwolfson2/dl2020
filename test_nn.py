@@ -127,7 +127,7 @@ def create_model_with_feature_extractor(feature_extractor,last_layer_size,output
     return nn.Sequential(feature_extractor,output_layer,nn.Sigmoid())
 
 
-def load_cam_model(cam,latest_fe = True,cloud = True):
+def load_cam_model(cam,latest_fe = True,cloud = True,requires_grad=True):
     cam_short = cam.replace('jpeg','pt')
     cloud_filename = f"resnet_1{cam_short}"
     filename = f"./models/{cloud_filename}"
@@ -146,7 +146,10 @@ def load_cam_model(cam,latest_fe = True,cloud = True):
     else:
         fe_sd = out_sd["feat_extractor_state_dict"]
     
-    model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sdr)    
+    model = load_model_with_state_dicts(models.resnet18,fe_sd,out_sdr)
+    if not requires_grad:
+        for param in model.parameters():
+            param.requires_grad=False
     return model
 
 

@@ -62,3 +62,35 @@ def sew_images(sing_samp):
         toImg = transforms.ToPILImage()
         result = toImg(comb) # image object [3, 768, 612]
         return result
+    
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
+    
+class encoder(nn.Module):
+    
+    def __init__(self):
+        super(encoder, self).__init__()
+        
+        self.encoder = models.resnet18()
+        self.encoder.fc = Identity() #set last layer to identity
+        
+    def forward(self, x): #x should be [batch, 1, 256, 306] for a single image
+        output = self.encoder(x)
+        return output
+
+class decoder(nn.Module):
+    
+    def __init__(self, in_channel, out_channel): #is in_channel 1, outchannel 1, input size 512*6, output size 800 x 800
+        super(decoder, self).__init__()
+        #set up a number of upsampling layers
+        pass
+        
+    def forward(self, x): #x should be [batch, 1, 256, 306] for a single image
+        #pass through all the upsampling
+        return output
+    
+    

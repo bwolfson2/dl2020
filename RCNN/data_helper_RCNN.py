@@ -23,7 +23,7 @@ image_names = [
     'CAM_BACK_RIGHT.jpeg',
     ]
 
-
+totense = transforms.ToTensor()
 # The dataset class for unlabeled data.
 class UnlabeledDataset_RCNN(torch.utils.data.Dataset):
     def __init__(self, image_folder, scene_index, first_dim, transform):
@@ -66,12 +66,13 @@ class UnlabeledDataset_RCNN(torch.utils.data.Dataset):
             for image_name in image_names:
                 image_path = os.path.join(sample_path, image_name)
                 image = Image.open(image_path)
-                images.append(self.transform(image))
+                images.append(totense(image))
             image_tensor = torch.stack(images)
+            img = image_tensor
             
-            m = transforms.Compose([transforms.Resize((800,800)), transforms.ToTensor()])
-            comb_img = sew_images(image_tensor) 
-            img =m(comb_img) #should be [3, 800, 800]
+#             m = transforms.Compose([transforms.Resize((800,800)), transforms.ToTensor()])
+#             comb_img = sew_images(image_tensor) 
+#             img =m(comb_img) #should be [3, 800, 800]
             
             return img, None #in the same format as img, target
 
@@ -119,12 +120,14 @@ class LabeledDataset_RCNN(torch.utils.data.Dataset):
         for image_name in image_names:
             image_path = os.path.join(sample_path, image_name)
             image = Image.open(image_path)
-            images.append(self.transform(image))
+            #images.append(self.transform(image))
+            images.append(totense(image))
         image_tensor = torch.stack(images) #should be [6, 3, 256, 306]
+        img = image_tensor
         
-        m = transforms.Resize((800,800))
-        comb_img = sew_images(image_tensor) 
-        img =m(comb_img) #should be [3, 800, 800]
+        #m = transforms.Resize((800,800))
+        #comb_img = sew_images(image_tensor) 
+        #img =m(comb_img) #should be [3, 800, 800]
         
         data_entries = self.annotation_dataframe[(self.annotation_dataframe['scene'] == scene_id) & (self.annotation_dataframe['sample'] == sample_id)]
         
@@ -231,7 +234,7 @@ def convert_categories(categories):
     # 'pedestrian': 2,
     # 'all other': 3,
      
-    map_dict = {0:3, 1:3, 2:1, 3:2, 4:3, 5:3, 6:3, 7:3, 8:3}
+    map_dict = {0:1, 1:1, 2:1, 3:1, 4:1, 5:1, 6:1, 7:1, 8:1}
     labels = []
     for c in categories:
         labels.append(map_dict[c])

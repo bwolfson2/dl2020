@@ -43,9 +43,9 @@ import argparse
 
 
 def train(model, optimizer, train_data_loader, device, epoch, print_freq=100):
-    for epoch in range(num_epochs):
+    for epoch_ in range(epoch):
         # train for one epoch, printing every 10 iterations
-        train_one_epoch_combModel(model, optimizer, train_data_loader, device, epoch, print_freq=100)
+        train_one_epoch_combModel(model, optimizer, train_data_loader, device, epoch_, print_freq=100)
         # update the learning rate
         lr_scheduler.step()
      

@@ -210,7 +210,7 @@ class CombModel (nn.Module):
         self.decoder = UpModel(3072, 1)
         self.maskRCNN = self.get_instance_segmentation_model(num_classes = 2)
         
-    def forward(self, image, target): 
+    def forward(self, image, target = None): 
         #image is tuple([6, 3, 256, 306]), length 1, target is the dictionary of stuff
         #target is a tuple if ( dict of boxes, masks etc) length 1
         six_encode = self.encoder(image[0]) # output [6, 512]
@@ -229,7 +229,7 @@ class CombModel (nn.Module):
         else:
             pred = self.maskRCNN(dec_output)
         
-        return loss_dict, pred
+        return pred, loss_dict
    
     
 def trans_target(old_targets): #target from the given dataset and data loader
@@ -267,11 +267,11 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
     header = 'Epoch: [{}]'.format(epoch)
 
     lr_scheduler = None
-    if epoch == 0:
-        warmup_factor = 1. / 1000
-        warmup_iters = min(1000, len(data_loader) - 1)
+#     if epoch == 0:
+#         warmup_factor = 1. / 1000
+#         warmup_iters = min(1000, len(data_loader) - 1)
 
-        lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
+#         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
 
     for sample, old_targets, road_image, extra in metric_logger.log_every(data_loader, print_freq, header): 
         
@@ -282,7 +282,7 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        loss_dict,_ = model(images, targets)
+        _ , loss_dict = model(images, targets)
         #print(loss_dict)
         
         losses = sum(loss for loss in loss_dict.values())

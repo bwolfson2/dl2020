@@ -10,9 +10,12 @@ import numpy as np
 import math
 import sys
 import time
-
+import random
 
 import torchvision.models.detection.mask_rcnn
+ 
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from coco_utils import get_coco_api_from_dataset
 from coco_eval import CocoEvaluator
@@ -75,6 +78,17 @@ def sew_images(sing_samp):
         result = toImg(comb) # image object [3, 768, 612]
         return result
     
+
+def gen_train_val_index(labeled_scene_index):
+    breakpt = len(labeled_scene_index)//3
+    labeled_scene_index_shuf = labeled_scene_index
+    random.shuffle(labeled_scene_index_shuf)
+
+    train_labeled_scene_index = labeled_scene_index_shuf[:-breakpt]
+    val_labeled_scene_index = labeled_scene_index_shuf[-breakpt: ]
+    return train_labeled_scene_index, val_labeled_scene_index    
+    
+    
 class Identity(nn.Module):
     def __init__(self):
         super(Identity, self).__init__()
@@ -94,15 +108,15 @@ class Encoder(nn.Module):
         self.encoder = models.resnet18() #[6, 3, w, h]
         self.encoder.fc = Identity() #set last layer to identity, output is [6, 512]
         
-        sing_up = nn.ConvTranspose1d(in_channels = 1, out_channels =1, kernel_size = 5, dilation =2)
-        self.mult_up = nn.Sequential(*([sing_up]*8)) #this is to get the output from [1, 1, 3072] to [1, 3136]
+        #sing_up = nn.ConvTranspose1d(in_channels = 1, out_channels =1, kernel_size = 5, dilation =2)
+        #self.mult_up = nn.Sequential(*([sing_up]*8)) #this is to get the output from [1, 1, 3072] to [1, 3136]
         
     def forward(self, x): #x should be [batch, 1, 256, 306] for a single image
         output = self.encoder(x)#should be [6, 512]
-        output = output.view(1, -1) #should be [1, 3072]
-        output = self.mult_up(output.unsqueeze(0)) #should be [1, 3136]
-        output = output.view(1, 56, 56)
-        return output #should be [1, 56, 56]
+        #output = output.view(1, -1) #should be [1, 3072]
+        #output = self.mult_up(output.unsqueeze(0)) #should be [1, 3136]
+        #output = output.view(1, 56, 56)
+        return output  
 
 class UpModel(nn.Module):
     
@@ -110,7 +124,7 @@ class UpModel(nn.Module):
         print("hey")
     
     def forward(self, x):
-        print("in forward")
+        #print("in forward")
         output = self.main(x) 
         return output
         
@@ -169,10 +183,10 @@ class UpModel(nn.Module):
         
 class CombModel (nn.Module):
       
-    def get_instance_segmentation_model(num_classes, pretrain = False):
+    def get_instance_segmentation_model(self, num_classes, pretrain = False):
         # load an instance segmentation model , if pretrain = True, it is pre-trained on COCO
         if pretrain:
-            print("in pretrain")
+            #print("in pretrain")
             model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True) #try with pretrained first
         else: 
             model = torchvision.models.detection.maskrcnn_resnet50_fpn()
@@ -194,22 +208,28 @@ class CombModel (nn.Module):
         super(CombModel, self).__init__()
         self.encoder = Encoder()
         self.decoder = UpModel(3072, 1)
-        self.maskRCNN = get_instance_segmentation_model(num_classes = 2)
+        self.maskRCNN = self.get_instance_segmentation_model(num_classes = 2)
         
     def forward(self, image, target): 
         #image is tuple([6, 3, 256, 306]), length 1, target is the dictionary of stuff
         #target is a tuple if ( dict of boxes, masks etc) length 1
         six_encode = self.encoder(image[0]) # output [6, 512]
         six_encode = six_encode.view(3072,1,1).unsqueeze(0) #[1, 3072, 1, 1]
-        print("six_encode_shape {}".format(six_encode.shape))
+        #print("six_encode_shape {}".format(six_encode.shape))
         dec_output = self.decoder(six_encode) #[1, 1, 800, 800]
-        print("decode_output_shape {}".format(six_encode.shape))
+        #print("decode_output_shape {}".format(dec_output.shape))
            
         #output_dict = self.maskRCNN(dec_output)
-        dec_output = (dec_output.squeeze(0)) #turn it into a tuple of [1, 800, 800] , length 1  
-        loss_dict = self.maskRCNN(dec_output, target)           
-              
-        return loss_dict
+        dec_output = tuple([dec_output.squeeze(0)]) #turn it into a tuple of [1, 800, 800] , length 1  
+        loss_dict = None
+        pred = None
+        
+        if target is not None:
+            loss_dict = self.maskRCNN(dec_output, target)           
+        else:
+            pred = self.maskRCNN(dec_output)
+        
+        return loss_dict, pred
    
     
 def trans_target(old_targets): #target from the given dataset and data loader
@@ -257,13 +277,14 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
         
         images = sample
         targets = trans_target(old_targets)
-        print("images len {}, targets len {}".format(len(images), len(targets)))
-        print("images[0] shape {}".format(images[0].shape)) # [6, 3, 256, 306]      
+        #print("images len {}, targets len {}".format(len(images), len(targets)))
+        #print("images[0] shape {}".format(images[0].shape)) # [6, 3, 256, 306]      
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        loss_dict = model(images, targets)
-
+        loss_dict,_ = model(images, targets)
+        #print(loss_dict)
+        
         losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purposes
@@ -303,7 +324,7 @@ def get_boxes(corners): #this is the corners of the annotaion file
     
     boxes = []
     num_obj = corners.shape[0]
-    print(corners.shape, num_obj)
+    #print(corners.shape, num_obj)
     for i in range (num_obj):
         xmin = np.min(xvals[i])
         xmax = np.max(xvals[i])

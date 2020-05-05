@@ -22,6 +22,9 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import utils
 
 
+normalize = transforms.Normalize(mean=[0.6394939, 0.6755114, 0.7049375],
+                                     std=[0.31936955, 0.3117349 , 0.2953726 ])
+
 
 def sew_images(sing_samp):
         # sing_samp is [6, 3, 256, 306], one item is batch
@@ -78,6 +81,16 @@ def sew_images(sing_samp):
         result = toImg(comb) # image object [3, 768, 612]
         return result
     
+def sew_images_panorm(samples):
+    new_samples = []
+    for sample in samples:
+        new_sample =  torch.cat([sample[0],sample[1],sample[2],sample[5],sample[4],sample[3]],axis = 2)
+        toImg = transforms.ToPILImage()
+        new_sample = toImg(new_sample)
+        new_samples.append(new_sample)
+    return new_samples #list of [3, 256, 1836]
+
+
 
 def gen_train_val_index(labeled_scene_index):
     breakpt = len(labeled_scene_index)//3
@@ -306,7 +319,7 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
     return metric_logger
 
 
-def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq): #this data loader is given loader
+def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq, panorm = False): #this data loader is given loader
     
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -320,7 +333,7 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
 
 #         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
     
-    tt = transforms.Compose([transforms.Resize((800, 800)), transforms.ToTensor()]) #this is for 6 images combo
+    tt = transforms.Compose([transforms.Resize((800, 800)), transforms.ToTensor(), normalize]) #this is for 6 images combo
     for sample, old_targets, road_image, extra in metric_logger.log_every(data_loader, print_freq, header): 
         
         #images = sample[0] 
@@ -329,7 +342,10 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
         #print("images len {}, targets len {}".format(len(images), len(targets)))
         #print("len(sample) {}, sample [0] shape {}".format(len(sample), sample[0].shape)) # [6, 3, 256, 306]      
         #images = list(image.to(device) for image in images)
-        images = [tt(sew_images(s)).to(device) for s in sample] #list of [3, 800, 800], should be 1 per patch
+        if panorm:
+            images = [tt(s).to(device) for s in sew_images_panorm(sample)]
+        else:
+            images = [tt(sew_images(s)).to(device) for s in sample] #list of [3, 800, 800], should be 1 per patch
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         loss_dict = model(images, targets)
@@ -371,8 +387,8 @@ def get_boxes(corners): #this is the corners of the annotaion file
     #['fl_x', 'fr_x', 'bl_x', 'br_x', 'fl_y', 'fr_y','bl_y', 'br_y']
     #translate this to boxes to the fastRNN format
     xvals = corners[:, :4] *10 +400
-    yvals = -(corners[:, 4:]*10 +400) #not flipping the y vals
-    
+    #yvals = -(corners[:, 4:]*10 +400) #not flipping the y vals
+    yvals = (corners[:, 4:]*10 +400)
     boxes = []
     num_obj = corners.shape[0]
     #print(corners.shape, num_obj)

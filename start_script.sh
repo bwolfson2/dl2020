@@ -49,3 +49,12 @@ wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download
 unzip student_data.zip
 rm student_data.zip
 
+#to run the RCNN packages
+apt-get install gcc
+pip install Cython
+pip install pycocotools
+
+conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
+
+#might also need to downgrade numpy to Numpy 1.17.5 to synch with the RCNN packages
+pip install --upgrade numpy==1.17.5

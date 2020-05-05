@@ -263,7 +263,7 @@ def trans_target(old_targets): #target from the given dataset and data loader
 
         tg_list.append(target)
         
-    return tuple(tg_list)
+    return tg_list #removed tuple
               
 
               

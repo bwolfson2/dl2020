@@ -186,8 +186,9 @@ class ConvAutoencoder(nn.Module):
         return x
     
 def get_autoencoder():
-    m_test = ConvAutoencoder()
-    m_test.load_state_dict(torch.load('autoencoder_21.pt2'))
+    with torch.no_grad():
+        m_test = ConvAutoencoder()
+        m_test.load_state_dict(torch.load('autoencoder_21.pt2'))
     return m_test
     
     

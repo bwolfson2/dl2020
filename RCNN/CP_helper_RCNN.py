@@ -17,8 +17,8 @@ import torchvision.models.detection.mask_rcnn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-from coco_utils import get_coco_api_from_dataset
-from coco_eval import CocoEvaluator
+# from coco_utils import get_coco_api_from_dataset
+# from coco_eval import CocoEvaluator
 import utils
 
 

@@ -81,12 +81,13 @@ def sew_images(sing_samp):
         result = toImg(comb) # image object [3, 768, 612]
         return result
     
-def sew_images_panorm(samples):
+def sew_images_panorm(samples , to_img = False):
     new_samples = []
     for sample in samples:
         new_sample =  torch.cat([sample[0],sample[1],sample[2],sample[5],sample[4],sample[3]],axis = 2)
         toImg = transforms.ToPILImage()
-        new_sample = toImg(new_sample)
+        if to_img:
+            new_sample = toImg(new_sample)
         new_samples.append(new_sample)
     return new_samples #list of [3, 256, 1836]
 
@@ -319,8 +320,9 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
     return metric_logger
 
 
-def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq, panorm = False): #this data loader is given loader
-    
+def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq, mode = "sew6", encoder = None ): 
+    #this data loader is given loader
+    #mode can be "sew6", "panorm", "autoencode"
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -342,9 +344,16 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
         #print("images len {}, targets len {}".format(len(images), len(targets)))
         #print("len(sample) {}, sample [0] shape {}".format(len(sample), sample[0].shape)) # [6, 3, 256, 306]      
         #images = list(image.to(device) for image in images)
-        if panorm:
-            images = [tt(s).to(device) for s in sew_images_panorm(sample)]
-        else:
+        if mode == "panorm":
+            images = [tt(s).to(device) for s in sew_images_panorm(sample, to_img = True)]
+        
+        elif mode == "autoencode":
+            samp_pan = sew_images_panorm(sample) #convert to panoramic tensor
+            samp_pan_t = torch.stack(samp_pan, dim = 0) #stack
+            images = encoder.return_image_tensor(samp_pan_t).to(device) #see if it will take it or it needs to take a list
+             
+        
+        else: #mode is sew6
             images = [tt(sew_images(s)).to(device) for s in sample] #list of [3, 800, 800], should be 1 per patch
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -438,7 +447,7 @@ def gen_masks(corners , labels, img_w = 800, img_h = 800):
     #print('corners shape {}'.format(corners.shape))
     corners = corners*10 +400 #convert into the road image format of 800, 800 with center being 400, 400
     xvals = np.round(corners[:, :4], 0).astype(int)
-    yvals = -np.round(corners[:, 4:], 0).astype(int)
+    yvals = -np.round(corners[:, 4:], 0).astype(int) #keep this negative for the chart
     num_obj = len(labels)
     #print('num_obj {}'.format(num_obj))
     masks = torch.zeros((num_obj, img_w, img_h))
@@ -456,7 +465,29 @@ def gen_masks(corners , labels, img_w = 800, img_h = 800):
     return masks            
               
               
-              
+def gen_result_chart(sing_target, img_w = 800, img_h = 800):
+    '''
+    essentially fill in the boxes in road_image with the class labels
+    however all background is 0, hence no road is shown
+    boxes format: ['col min', 'row_min', 'col_max', 'row_max']
+    '''
+ 
+    boxes = sing_target["boxes"].cpu().numpy()
+    labels = sing_target["labels"].cpu().numpy()
+    num_obj = len(labels)
+    #print('num_obj {}'.format(num_obj))
+    background = torch.zeros((img_w, img_h))
+    
+    for i in range(num_obj):
+        colmin = int(round(boxes[i][0]))
+        colmax = int(round(boxes[i][2]))
+        
+        rowmin = int(round(boxes[i][1]))
+        rowmax = int(round(boxes[i][3]))
+        #print(rowmin, rowmax, colmin, colmax)
+        background[rowmin:rowmax, colmin:colmax] = int(labels[i]) #flip y axis to stay with class convention
+       
+    return background            
               
               
               

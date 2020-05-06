@@ -417,6 +417,8 @@ def get_boxes(corners): #this is the corners of the annotaion file
     boxes = torch.as_tensor(boxes, dtype=torch.float32)
     
     return boxes
+
+
 def convert_categories(categories):
     #Old categories
      

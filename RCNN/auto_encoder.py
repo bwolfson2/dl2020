@@ -28,6 +28,18 @@ import torchvision.transforms as transforms
 import torch.utils.data
 
 
+
+def gen_train_val_index(labeled_scene_index):
+    breakpt = len(labeled_scene_index)//3
+    labeled_scene_index_shuf = labeled_scene_index
+    random.shuffle(labeled_scene_index_shuf)
+
+    train_labeled_scene_index = labeled_scene_index_shuf[:-breakpt]
+    val_labeled_scene_index = labeled_scene_index_shuf[-breakpt: ]
+    return train_labeled_scene_index, val_labeled_scene_index
+
+
+
 random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0);
@@ -73,6 +85,8 @@ train_data_loader = torch.utils.data.DataLoader(
 val_data_loader = torch.utils.data.DataLoader(
     dataset_val, batch_size=30, shuffle=False, num_workers=4,
     collate_fn=collate_fn)
+
+
 
 
 #BEN CHANGED
@@ -138,16 +152,19 @@ class ConvAutoencoder(nn.Module):
 #         self.dec_conv2 = nn.ConvTranspose2d(64, 32, 3, padding=(1,15),stride=(1,2))
 #         self.dec_conv3 = nn.ConvTranspose2d(32, 16, 3, padding=(1,17),stride=(1,2),output_padding=(0,1))
 #         self.dec_conv4 = nn.ConvTranspose2d(16, 3, 3, padding=(1,17),stride=(1,2),output_padding=(0,1))
-    def return_image_tensor(self,x):
-        with torch.no_grad():
+    def return_image_tensor(self,x,requires_grad = False):
+        if requires_grad:
             a = self.encode(x)
-            return F.pad(a,pad=(16,16,16,16))
+        else:
+            with torch.no_grad():
+                a = self.encode(x)
+        return F.pad(a,pad=(16,16,16,16))
     def encode(self,x):
         #V1 encoder
         x = torch.tanh(self.enc_conv1(x))
         x = torch.tanh(self.enc_conv2(x))
         x = torch.tanh(self.enc_conv3(x))
-        x = torch.tanh(self.z(x))
+        x = torch.sigmoid(self.z(x))
 #         x = F.relu(self.enc_conv1(x))
 #         x = F.relu(self.enc_conv2(x))
 #         x = F.relu(self.enc_conv3(x))
@@ -185,10 +202,9 @@ class ConvAutoencoder(nn.Module):
         
         return x
     
-def get_autoencoder():
-    with torch.no_grad():
-        m_test = ConvAutoencoder()
-        m_test.load_state_dict(torch.load('autoencoder_21.pt2'))
+def get_autoencoder(require_grad = False):
+    m_test = ConvAutoencoder()
+    m_test.load_state_dict(torch.load('autoencoder_new.pt2'))
     return m_test
     
     

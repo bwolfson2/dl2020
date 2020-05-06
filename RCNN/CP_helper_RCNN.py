@@ -320,7 +320,7 @@ def train_one_epoch_combModel(model, optimizer, data_loader, device, epoch, prin
     return metric_logger
 
 
-def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq, mode = "sew6", encoder = None ): 
+def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print_freq, mode = "sew6", encoder = None,train_encoder= False ): 
     #this data loader is given loader
     #mode can be "sew6", "panorm", "autoencode"
     model.train()
@@ -334,8 +334,8 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
 #         warmup_iters = min(1000, len(data_loader) - 1)
 
 #         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
-    
-    tt = transforms.Compose([transforms.Resize((800, 800)), transforms.ToTensor(), normalize]) #this is for 6 images combo
+    if mode == 'panorm':
+        tt = transforms.Compose([transforms.Resize((800, 800)), transforms.ToTensor(), normalize]) #this is for 6 images combo
     for sample, old_targets, road_image, extra in metric_logger.log_every(data_loader, print_freq, header): 
         
         #images = sample[0] 
@@ -348,10 +348,14 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
             images = [tt(s).to(device) for s in sew_images_panorm(sample, to_img = True)]
         
         elif mode == "autoencode":
+            encoder.cuda()
             samp_pan = sew_images_panorm(sample) #convert to panoramic tensor
+            samp_pan = [normalize(i) for i in samp_pan]
             samp_pan_t = torch.stack(samp_pan, dim = 0) #stack
-            samp_pan_t = normalize(samp_pan_t)
-            images = encoder.return_image_tensor(samp_pan_t).to(device) #see if it will take it or it needs to take a list
+            if train_encoder:
+                images = encoder.return_image_tensor(samp_pan_t.to(device),train_encoder) #see if it will take it or it needs to take a list
+            else:
+                images = encoder.return_image_tensor(samp_pan_t.cuda(),train_encoder).to(device)
              
         
         else: #mode is sew6

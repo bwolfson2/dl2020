@@ -350,6 +350,7 @@ def train_one_epoch_FastRCNN(model, optimizer, data_loader, device, epoch, print
         elif mode == "autoencode":
             samp_pan = sew_images_panorm(sample) #convert to panoramic tensor
             samp_pan_t = torch.stack(samp_pan, dim = 0) #stack
+            samp_pan_t = normalize(samp_pan_t)
             images = encoder.return_image_tensor(samp_pan_t).to(device) #see if it will take it or it needs to take a list
              
         

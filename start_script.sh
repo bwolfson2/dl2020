@@ -58,3 +58,6 @@ conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
 
 #might also need to downgrade numpy to Numpy 1.17.5 to synch with the RCNN packages
 pip install --upgrade numpy==1.17.5
+
+#install Shapely
+conda install Shapely
